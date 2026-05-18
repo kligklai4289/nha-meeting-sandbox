@@ -2,9 +2,9 @@
 "use client";
 import { useState } from 'react';
 import { 
-  LayoutDashboard, CalendarDays, Users, ClipboardCheck, FileWord, 
-  ChevronDown, RefreshCw, Plus, CheckCircle, Clock, UserPlus, 
-  ShieldAlert, FileSpreadsheet, Radio, Laptop, FileText, Download, CheckCircle2, UserCircle
+  LayoutDashboard, CalendarDays, Users, ClipboardCheck, FileText, 
+  ChevronDown, Plus, CheckCircle, Clock, UserPlus, 
+  ShieldAlert, FileSpreadsheet, Radio, Laptop, Download, CheckCircle2, UserCircle
 } from 'lucide-react';
 
 export default function InteractiveSandboxMockup() {
@@ -49,15 +49,6 @@ export default function InteractiveSandboxMockup() {
     setInputName("");
   };
 
-  // ฟังก์ชันอัปเดตสถานะเช็คชื่อแบบเรียลไทม์
-  const updateAttendanceStatus = (id: number, status: 'มา' | 'ไม่มา' | 'ลา') => {
-    setMembers(members.map(m => m.id === id ? { ...m, status, type: status === 'มา' ? 'Onsite' : '-' } : m));
-  };
-
-  const updateAttendanceType = (id: number, type: 'Onsite' | 'Online') => {
-    setMembers(members.map(m => m.id === id && m.status === 'มา' ? { ...m, type } : m));
-  };
-
   return (
     <div className="flex min-h-screen bg-slate-50 text-slate-800 font-sans">
       
@@ -74,7 +65,7 @@ export default function InteractiveSandboxMockup() {
             { id: 'meetings', name: 'จัดการการประชุม', icon: CalendarDays },
             { id: 'committees', name: 'รายชื่อคณะกรรมการ', icon: Users },
             { id: 'attendance', name: 'ระบบเช็คชื่อ (Hybrid)', icon: ClipboardCheck },
-            { id: 'report', name: 'รายงาน Word', icon: FileWord },
+            { id: 'report', name: 'รายงาน Word', icon: FileText },
           ].map((item) => {
             const isActive = currentTab === item.id;
             return (
@@ -104,7 +95,6 @@ export default function InteractiveSandboxMockup() {
       {/* ---------------- MAIN CONTENT AREA ---------------- */}
       <div className="flex-1 ml-64 p-8">
         
-        {/* Global Header */}
         <header className="flex justify-between items-center mb-8 border-b border-slate-200 pb-4">
           <div>
             <div className="text-xs font-bold text-blue-600 uppercase tracking-wider mb-1">การเคหะแห่งชาติ (NHA)</div>
@@ -125,7 +115,6 @@ export default function InteractiveSandboxMockup() {
         {/* ---------------- PAGE 1: DASHBOARD ---------------- */}
         {currentTab === 'dashboard' && (
           <div className="space-y-6">
-            {/* Filters */}
             <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase mb-2">ปีงบประมาณ</label>
@@ -148,11 +137,9 @@ export default function InteractiveSandboxMockup() {
               </div>
               <div className="flex gap-2">
                 <button onClick={() => alert(`ดึงข้อมูลปีงบประมาณ ${fiscalYear} สำเร็จ`)} className="flex-1 bg-blue-600 text-white p-2.5 rounded-lg font-medium hover:bg-blue-700 transition-colors">เรียกดูข้อมูล</button>
-                <button onClick={() => setCurrentTab('report')} className="p-2.5 border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50">ดูรายงาน</button>
               </div>
             </div>
 
-            {/* Stats */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               {[
                 { label: 'การประชุมทั้งหมด', val: meetingData.length, color: 'border-l-blue-500' },
@@ -167,12 +154,7 @@ export default function InteractiveSandboxMockup() {
               ))}
             </div>
 
-            {/* Table */}
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-              <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                <h3 className="font-bold text-slate-800">ตารางสิทธิ์และรายชื่อการประชุม</h3>
-                <span className="text-xs bg-blue-50 text-blue-600 px-2.5 py-1 rounded-md font-semibold">ข้อมูลแบบ Real-time</span>
-              </div>
               <table className="w-full text-left border-collapse">
                 <thead className="bg-slate-50 text-slate-400 text-xs font-bold uppercase border-b border-slate-200">
                   <tr>
@@ -180,7 +162,6 @@ export default function InteractiveSandboxMockup() {
                     <th className="p-4">วาระการประชุม</th>
                     <th className="p-4">วันที่จัด</th>
                     <th className="p-4">สถานะการจัด</th>
-                    <th className="p-4 text-center">องค์ประชุม</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-sm">
@@ -190,14 +171,7 @@ export default function InteractiveSandboxMockup() {
                       <td className="p-4 text-slate-600">{item.times}</td>
                       <td className="p-4 text-slate-600">{item.date}</td>
                       <td className="p-4">
-                        <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${item.statusColor}`}>
-                          {item.status}
-                        </span>
-                      </td>
-                      <td className="p-4">
-                        <div className="flex items-center justify-center gap-2">
-                          <span className="text-xs font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded">{item.attendance}</span>
-                        </div>
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${item.statusColor}`}>{item.status}</span>
                       </td>
                     </tr>
                   ))}
@@ -212,23 +186,13 @@ export default function InteractiveSandboxMockup() {
           <div className="space-y-6">
             <div className="flex justify-between items-center">
               <h3 className="text-lg font-bold text-slate-800">รายการห้องและนัดหมายการประชุม</h3>
-              <button onClick={() => alert('ฟังก์ชันการสร้างบอร์ดการประชุมเปิดใช้งานในเวอร์ชันเต็ม')} className="flex items-center gap-1.5 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700">
-                <Plus size={16} /> นัดหมายประชุมล่วงหน้า
-              </button>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {meetingData.map((m) => (
                 <div key={m.id} className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-                  <div className="flex justify-between items-center mb-3">
-                    <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded">ID: NHA-00{m.id}</span>
-                    <span className="text-xs text-slate-400 font-medium">{m.date}</span>
-                  </div>
                   <h4 className="font-bold text-slate-800 mb-2 line-clamp-1">{m.title}</h4>
                   <p className="text-xs text-slate-500 mb-4">สถานที่: อาคารสำนักงานใหญ่ การเคหะแห่งชาติ หรือ ระบบออนไลน์</p>
-                  <div className="border-t border-slate-100 pt-3 flex justify-between items-center">
-                    <span className="text-xs font-semibold text-slate-500">จำนวนบอร์ดที่จัดตั้ง: 1 ชุด</span>
-                    <button onClick={() => setCurrentTab('attendance')} className="text-xs font-bold text-blue-600 hover:underline">บันทึกองค์ประชุม →</button>
-                  </div>
+                  <button onClick={() => setCurrentTab('attendance')} className="text-xs font-bold text-blue-600 hover:underline">บันทึกองค์ประชุม →</button>
                 </div>
               ))}
             </div>
@@ -238,57 +202,29 @@ export default function InteractiveSandboxMockup() {
         {/* ---------------- PAGE 3: COMMITTEES ---------------- */}
         {currentTab === 'committees' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Side Form */}
             <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm h-fit">
-              <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-1.5 text-sm">
-                <UserPlus size={16} className="text-blue-600" /> ลงทะเบียนบอร์ดคณะกรรมการ
-              </h3>
+              <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-1.5 text-sm"><UserPlus size={16} /> บันทึกคณะกรรมการ</h3>
               <form onSubmit={handleAddMember} className="space-y-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 mb-1.5">ชื่อ-นามสกุลคณะกรรมการ</label>
-                  <input 
-                    type="text" 
-                    value={inputName}
-                    onChange={(e) => setInputName(e.target.value)}
-                    placeholder="กรอกชื่อและนามสกุลจริง"
-                    className={`w-full p-2.5 bg-slate-50 border rounded-lg text-sm outline-none focus:ring-2 ${inputError ? 'border-red-400 focus:ring-red-100' : 'border-slate-200 focus:ring-blue-100'}`}
-                  />
-                  {inputError && (
-                    <p className="text-xs text-red-500 mt-1.5 flex items-center gap-1 font-medium">
-                      <ShieldAlert size={12}/> {inputError}
-                    </p>
-                  )}
-                </div>
-                <button type="submit" className="w-full py-2.5 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 transition-colors">
-                  บันทึกเข้าระบบ Sandbox
-                </button>
+                <input 
+                  type="text" 
+                  value={inputName} 
+                  onChange={(e) => setInputName(e.target.value)}
+                  placeholder="กรอกชื่อและนามสกุลจริง" 
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm"
+                />
+                <button type="submit" className="w-full py-2.5 bg-blue-600 text-white rounded-lg text-sm font-bold">บันทึก</button>
               </form>
-              <div className="mt-4 pt-4 border-t border-slate-100">
-                <button onClick={() => alert('ระบบนำเข้าจาก Excel (.xlsx) กำลังจำลองโครงสร้างข้อมูล')} className="w-full py-2.5 border border-dashed border-emerald-500 text-emerald-600 bg-emerald-50/30 rounded-lg text-xs font-bold hover:bg-emerald-50 transition-colors flex items-center justify-center gap-1.5">
-                  <FileSpreadsheet size={14}/> นำเข้าผ่าน Excel (Bulk Import)
-                </button>
-              </div>
             </div>
-
-            {/* Table Area */}
             <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-              <div className="p-4 border-b border-slate-100 bg-slate-50/50">
-                <h3 className="font-bold text-slate-800 text-sm">รายชื่อคณะกรรมการที่โหลดเข้า Sandbox</h3>
-              </div>
               <table className="w-full text-left border-collapse">
-                <thead className="bg-slate-50 text-slate-400 text-xs font-bold uppercase border-b border-slate-200">
-                  <tr>
-                    <th className="p-4">ชื่อ-นามสกุล</th>
-                    <th className="p-4">ตำแหน่งงาน</th>
-                    <th className="p-4">ฝ่ายงานสังกัด</th>
-                  </tr>
+                <thead className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-400 uppercase">
+                  <tr><th className="p-4">ชื่อ-นามสกุล</th><th className="p-4">ตำแหน่ง</th></tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
+                <tbody className="divide-y divide-slate-100 text-sm">
                   {members.map((m) => (
                     <tr key={m.id} className="hover:bg-slate-50/50">
-                      <td className="p-4 font-medium text-slate-900">{m.name}</td>
-                      <td className="p-4 text-xs font-semibold text-slate-500">{m.position}</td>
-                      <td className="p-4 text-xs text-slate-400">{m.department}</td>
+                      <td className="p-4 font-medium">{m.name}</td>
+                      <td className="p-4 text-slate-500">{m.position}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -300,64 +236,20 @@ export default function InteractiveSandboxMockup() {
         {/* ---------------- PAGE 4: ATTENDANCE ---------------- */}
         {currentTab === 'attendance' && (
           <div className="space-y-4">
-            <div className="bg-blue-900 text-white p-5 rounded-xl flex justify-between items-center shadow-md">
-              <div>
-                <h3 className="font-bold text-base">ระบบลงมติเช็คชื่อองค์ประชุมแบบเรียลไทม์</h3>
-                <p className="text-xs text-blue-200 mt-1">กดเปลี่ยนสถานะเพื่อทดสอบแถบประเมินผลความถูกต้อง (Data Integrity)</p>
-              </div>
-              <div className="bg-slate-900/60 px-4 py-2 rounded-lg border border-slate-700 text-right">
-                <span className="text-xs text-blue-400 font-bold block uppercase">สรุปองค์ประชุม</span>
-                <span className="text-base font-bold">เข้าร่วม {members.filter(m => m.status === 'มา').length} / {members.length} ท่าน</span>
-              </div>
+            <div className="bg-blue-900 text-white p-5 rounded-xl flex justify-between items-center">
+              <h3 className="font-bold text-base">ระบบลงมติเช็คชื่อองค์ประชุมแบบเรียลไทม์</h3>
+              <span className="bg-slate-900/60 px-4 py-2 rounded-lg border border-slate-700 font-bold text-sm">
+                มาประชุม {members.filter(m => m.status === 'มา').length} ท่าน
+              </span>
             </div>
-
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
               <table className="w-full text-left border-collapse">
-                <thead className="bg-slate-50 text-slate-400 text-xs font-bold uppercase border-b border-slate-200">
-                  <tr>
-                    <th className="p-4">รายชื่อคณะกรรมการ</th>
-                    <th className="p-4 text-center">การเข้าร่วม</th>
-                    <th className="p-4 text-center">รูปแบบการประชุม</th>
-                  </tr>
-                </thead>
                 <tbody className="divide-y divide-slate-100 text-sm">
                   {members.map((c) => (
-                    <tr key={c.id} className="hover:bg-slate-50/60 transition-colors">
-                      <td className="p-4 font-semibold text-slate-800">{c.name}</td>
+                    <tr key={c.id} className="hover:bg-slate-50/60">
+                      <td className="p-4 font-semibold">{c.name}</td>
                       <td className="p-4 text-center">
-                        <div className="inline-flex rounded-lg border border-slate-200 p-1 bg-slate-50 gap-1">
-                          {(['มา', 'ไม่มา', 'ลา'] as const).map((st) => (
-                            <button
-                              key={st}
-                              onClick={() => updateAttendanceStatus(c.id, st)}
-                              className={`px-3 py-1 text-xs rounded-md font-bold transition-all ${
-                                c.status === st 
-                                  ? st === 'มา' ? 'bg-green-600 text-white shadow-sm' : st === 'ไม่มา' ? 'bg-rose-600 text-white shadow-sm' : 'bg-slate-400 text-white shadow-sm'
-                                  : 'text-slate-600 hover:bg-slate-200'
-                              }`}
-                            >
-                              {st}
-                            </button>
-                          ))}
-                        </div>
-                      </td>
-                      <td className="p-4 text-center">
-                        {c.status === 'มา' ? (
-                          <div className="inline-flex rounded-lg border border-slate-200 p-1 bg-slate-50 gap-1">
-                            <button
-                              onClick={() => updateAttendanceType(c.id, 'Onsite')}
-                              className={`flex items-center gap-1 px-2.5 py-1 text-xs rounded-md font-bold ${c.type === 'Onsite' ? 'bg-blue-600 text-white' : 'text-slate-600'}`}
-                            >
-                              <Radio size={12}/> Onsite
-                            </button>
-                            <button
-                              onClick={() => updateAttendanceType(c.id, 'Online')}
-                              className={`flex items-center gap-1 px-2.5 py-1 text-xs rounded-md font-bold ${c.type === 'Online' ? 'bg-indigo-600 text-white' : 'text-slate-600'}`}
-                            >
-                              <Laptop size={12}/> Online
-                            </button>
-                          </div>
-                        ) : <span className="text-slate-400 text-xs">- ไม่ระบุ -</span>}
+                        <span className="text-xs font-bold px-3 py-1 bg-green-100 text-green-800 rounded">{c.status} ({c.type})</span>
                       </td>
                     </tr>
                   ))}
@@ -369,26 +261,11 @@ export default function InteractiveSandboxMockup() {
 
         {/* ---------------- PAGE 5: REPORT ---------------- */}
         {currentTab === 'report' && (
-          <div className="max-w-xl bg-white p-6 rounded-xl border border-slate-200 shadow-sm mx-auto">
-            <div className="flex items-start gap-4 mb-6">
-              <div className="p-3 bg-blue-50 rounded-xl text-blue-600">
-                <FileText size={28} />
-              </div>
-              <div>
-                <h3 className="font-bold text-base text-slate-800">เครื่องมือส่งออกเอกสารราชการ (.docx)</h3>
-                <p className="text-xs text-slate-500 mt-0.5">ดึงชุดข้อมูลจากผลการลงทะเบียนและเช็คชื่อในหน้า Sandbox ไปสตรีมลงหน้าฟอร์มรายงาน Word อัตโนมัติ</p>
-              </div>
+          <div className="max-w-xl bg-white p-6 rounded-xl border border-slate-200 shadow-sm mx-auto text-center">
+            <div className="bg-slate-50 p-4 rounded-lg border border-slate-100 space-y-2 mb-6 text-xs text-green-600 font-medium">
+              <div className="flex items-center justify-center gap-2"><CheckCircle2 size={14}/> ผ่านการตรวจสอบโครงสร้างข้อมูล (Zero-Error Guard)</div>
             </div>
-
-            <div className="bg-slate-50 p-4 rounded-lg border border-slate-100 space-y-2 mb-6 text-xs text-slate-600 font-medium">
-              <div className="flex items-center gap-2"><CheckCircle2 size={14} className="text-green-500"/> ผ่านการตรวจสอบโครงสร้างข้อมูลส่วนแรก (Zero-Error Guard)</div>
-              <div className="flex items-center gap-2"><CheckCircle2 size={14} className="text-green-500"/> ตรวจสอบสรุปยอดมาประชุมล่าสุด: ยืนยันเรียบร้อย</div>
-            </div>
-
-            <button 
-              onClick={() => alert(`🎉 ดาวน์โหลดเอกสารสรุปองค์ประชุมประจำปีงบประมาณ ${fiscalYear} สำเร็จ (ไฟล์จำลอง)`)} 
-              className="flex items-center justify-center gap-2 w-full py-3 bg-blue-600 text-white rounded-xl font-bold text-sm hover:bg-blue-700 transition-colors shadow-md"
-            >
+            <button onClick={() => alert('ดาวน์โหลดรายงานสำเร็จ')} className="flex items-center justify-center gap-2 w-full py-3 bg-blue-600 text-white rounded-xl font-bold text-sm">
               <Download size={16} /> ดาวน์โหลดไฟล์รายงาน Word (.docx)
             </button>
           </div>
