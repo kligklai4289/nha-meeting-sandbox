@@ -11,8 +11,9 @@ import {
 // 📊 ฐานข้อมูลอ้างอิงโครงสร้างไฟล์ CSV จริง สปสช. เขต 4
 // ==========================================
 const INITIAL_COMMITTEES = [
-  { id: "C001", name: "คณะอนุกรรมการหลักประกันสุขภาพแห่งชาติเขต 4สระบุรี", quorum: 20, dept: "สำนักงานใหญ่" },
-  { id: "C002", name: "คณะอนุกรรมการควบคุม คุณภาพและมาตรฐานบริการสาธารณสุขระดับเขตพื้นที่ เขต4 สระบุรี", quorum: 20, dept: "ฝ่ายการเงิน" }
+  { id: "C001", name: "คณะกรรมการบริหาร", quorum: 5 },
+  { id: "C002", name: "คณะกรรมการตรวจสอบ", quorum: 5 },
+  { id: "C003", name: "คณะกรรมการพัฒนา", quorum: 5 }
 ];
 
 const INITIAL_MEMBERS = [
@@ -20,16 +21,17 @@ const INITIAL_MEMBERS = [
   { id: "M002", name: "นางสาวสมหญิง มีสุข", position: "ประธาน", department: "สำนักงานใหญ่", status: "ใช้งาน" },
   { id: "M003", name: "นายวิชัย ศรีสวัสดิ์", position: "กรรมการ", department: "ฝ่ายการเงิน", status: "ใช้งาน" },
   { id: "M004", name: "นางมาลี รักดี", position: "เลขานุการ", department: "ฝ่ายการเงิน", status: "ใช้งาน" },
-  { id: "M005", name: "นายประสิทธิ์ ดีงาม", position: "กรรมการ", department: "ฝ่ายพัฒนาธุรกิจ", status: "ใช้งาน" }
+  { id: "M005", name: "นายประสิทธิ์ ดีงาม", position: "กรรมการ", department: "ฝ่ายพัฒนาธุรกิจ", status: "ใช้งาน" },
+  { id: "M007", name: "นายธนกร พัฒนา", position: "รองประธาน", department: "สำนักงานใหญ่", status: "ใช้งาน" }
 ];
 
 const INITIAL_MEMBERSHIPS = [
   { id: "MS001", memberId: "M001", committeeId: "C001", role: "กรรมการ" },
   { id: "MS002", memberId: "M002", committeeId: "C001", role: "ประธาน" },
   { id: "MS003", memberId: "M003", committeeId: "C001", role: "กรรมการ" },
-  { id: "MS004", memberId: "M004", committeeId: "C002", role: "เลขานุการ" },
-  { id: "MS005", memberId: "M003", committeeId: "C002", role: "กรรมการ" },
-  { id: "MS006", memberId: "M001", committeeId: "C002", role: "กรรมการ" }
+  { id: "MS005", memberId: "M005", committeeId: "C001", role: "กรรมการ" },
+  { id: "MS007", memberId: "M007", committeeId: "C001", role: "รองประธาน" },
+  { id: "MS004", memberId: "M004", committeeId: "C002", role: "เลขานุการ" }
 ];
 
 const INITIAL_MEETINGS = [
@@ -49,7 +51,6 @@ const INITIAL_MEETINGS = [
   }
 ];
 
-// โครงสร้างบันทึกผู้เข้าร่วมประชุม (Attendance Log)
 const INITIAL_ATTENDANCE: Record<string, Record<string, { status: string; type: string; reason?: string; personType: string; name?: string; role?: string; dept?: string }>> = {
   "MT001": {
     "M001": { status: "มาประชุม", type: "onsite", personType: "member" },
@@ -60,22 +61,29 @@ const INITIAL_ATTENDANCE: Record<string, Record<string, { status: string; type: 
 
 export default function App() {
   // --- UI Views & Control State ---
-  const [currentTab, setCurrentTab] = useState<string>('dashboard');
+  const [currentTab, setCurrentTab] = useState<string>('manage_committees'); // ตั้งค่าหน้าแรกให้เปิดมาเจอหน้ารายชื่อคณะกรรมการทันทีตามรูปภาพ
   
   // --- Database States ---
-  const [committees] = useState(INITIAL_COMMITTEES);
-  const [members] = useState(INITIAL_MEMBERS);
-  const [memberships] = useState(INITIAL_MEMBERSHIPS);
+  const [committees, setCommittees] = useState(INITIAL_COMMITTEES);
+  const [members, setMembers] = useState(INITIAL_MEMBERS);
+  const [memberships, setMemberships] = useState(INITIAL_MEMBERSHIPS);
   const [meetings, setMeetings] = useState(INITIAL_MEETINGS);
   const [attendance, setAttendance] = useState(INITIAL_ATTENDANCE);
 
-  // --- Filtering ---
+  // --- Filtering & Active Selectors ---
   const [fiscalYear, setFiscalYear] = useState<string>('2569');
-  const [selectedCommittee, setSelectedCommittee] = useState<string>('all');
+  const [selectedCommittee, setSelectedCommittee] = useState<string>('C001'); // ผูกกับ คณะกรรมการบริหาร เป็นค่าเริ่มต้น
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [activeMeetingId, setActiveMeetingId] = useState<string>('MT001');
 
-  // --- Form States ---
+  // --- หน้ารายชื่อคณะกรรมการ Form States (ถอดแบบจากในรูป 100%) ---
+  const [minQuorum, setMinQuorum] = useState<string>('5');
+  const [newMemberName, setNewMemberName] = useState<string>('');
+  const [newMemberRole, setNewMemberRole] = useState<string>('');
+  const [newMemberDept, setNewMemberDept] = useState<string>('');
+  const [selectedExistingMemberId, setSelectedExistingMemberId] = useState<string>('M004'); // ค่าเริ่มต้น นางมาลี รักดี - เลขานุการ
+
+  // --- Form States สำหรับเพิ่มการประชุม ---
   const [formRound, setFormRound] = useState('');
   const [formDate, setFormDate] = useState('');
   const [formPlace, setFormPlace] = useState('');
@@ -86,7 +94,108 @@ export default function App() {
   const [guestRole, setGuestRole] = useState('ผู้เข้าร่วมประชุมเพิ่มเติม');
   const [guestDept, setGuestDept] = useState('หน่วยงานภายนอก');
 
-  // --- Helper Query ---
+  // --- คำนวณรายชื่อคณะกรรมการชุดปัจจุบัน ---
+  const currentCommitteeMembers = useMemo(() => {
+    const rels = memberships.filter(ms => ms.committeeId === selectedCommittee);
+    return rels.map(r => {
+      const info = members.find(m => m.id === r.memberId);
+      return {
+        membershipId: r.id,
+        memberId: r.memberId,
+        name: info?.name || "ไม่ทราบชื่อ",
+        position: r.role || info?.position || "กรรมการ",
+        department: info?.department || "-"
+      };
+    });
+  }, [memberships, selectedCommittee, members]);
+
+  // คณะกรรมการที่เลือกในปัจจุบัน
+  const currentCommitteeInfo = useMemo(() => {
+    return committees.find(c => c.id === selectedCommittee);
+  }, [committees, selectedCommittee]);
+
+  // --- Actions สำหรับหน้ารายชื่อคณะกรรมการ (ถอดแบบจากปุ่มในรูป) ---
+  const handleSaveQuorum = () => {
+    setCommittees(prev => prev.map(c => c.id === selectedCommittee ? { ...c, quorum: Number(minQuorum) } : c));
+    alert("บันทึกองค์ประชุมขั้นต่ำเรียบร้อยแล้ว");
+  };
+
+  const handleAddNewMemberToCommittee = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newMemberName.trim()) return alert("กรุณากรอกชื่อ-นามสกุล");
+    
+    const newId = `M${String(members.length + 1).padStart(3, '0')}`;
+    const newMemberObj = {
+      id: newId,
+      name: newMemberName,
+      position: newMemberRole || "กรรมการ",
+      department: newMemberDept || "สำนักงานใหญ่",
+      status: "ใช้งาน"
+    };
+
+    const newMembershipObj = {
+      id: `MS${String(memberships.length + 1).padStart(3, '0')}`,
+      memberId: newId,
+      committeeId: selectedCommittee,
+      role: newMemberRole || "กรรมการ"
+    };
+
+    setMembers([...members, newMemberObj]);
+    setMemberships([...memberships, newMembershipObj]);
+    
+    // เคลียร์ฟอร์ม
+    setNewMemberName('');
+    setNewMemberRole('');
+    setNewMemberDept('');
+    alert("เพิ่มรายชื่อเข้าคณะกรรมการสำเร็จ");
+  };
+
+  const handleAddExistingMemberToCommittee = () => {
+    const alreadyInComm = memberships.some(ms => ms.committeeId === selectedCommittee && ms.memberId === selectedExistingMemberId);
+    if (alreadyInComm) return alert("บุคคลนี้อยู่ในคณะกรรมการชุดนี้อยู่แล้ว");
+
+    const targetMember = members.find(m => m.id === selectedExistingMemberId);
+    const newMembershipObj = {
+      id: `MS${String(memberships.length + 1).padStart(3, '0')}`,
+      memberId: selectedExistingMemberId,
+      committeeId: selectedCommittee,
+      role: targetMember?.position || "กรรมการ"
+    };
+
+    setMemberships([...memberships, newMembershipObj]);
+    alert("เพิ่มจากรายชื่อเดิมเข้าสู่คณะนี้สำเร็จ");
+  };
+
+  const handleRemoveMemberFromCommittee = (mId: string) => {
+    setMemberships(prev => prev.filter(ms => ms.id !== mId));
+    alert("ลบออกจากคณะเรียบร้อยแล้ว");
+  };
+
+  // จำลองระบบ Import CSV ตามรูปภาพ
+  const handleImportCSVFake = () => {
+    const fakeImported = [
+      { id: `M_IMP1`, name: "นายสมศักดิ์ รักชาติ", position: "กรรมการ", department: "ฝ่ายยุทธศาสตร์" },
+      { id: `M_IMP2`, name: "นางสาวทิพย์วรรณ มีแก้ว", position: "ผู้ทรงคุณวุฒิ", department: "หน่วยงานภายนอก" }
+    ];
+
+    const newMembers = [...members];
+    const newMemberships = [...memberships];
+
+    fakeImported.forEach((item, idx) => {
+      newMembers.push({ ...item, status: "ใช้งาน" });
+      newMemberships.push({
+        id: `MS_IMP_${Date.now()}_${idx}`,
+        memberId: item.id,
+        committeeId: selectedCommittee,
+        role: item.position
+      });
+    });
+
+    setMembers(newMembers);
+    setMemberships(newMemberships);
+    alert("ระบบจำลอง: Import รายชื่อจากไฟล์ CSV เข้าสู่คณะนี้สำเร็จเรียบร้อยแล้ว!");
+  };
+
   const getCommitteeMembers = (cId: string) => {
     const rels = memberships.filter(ms => ms.committeeId === cId);
     return rels.map(r => {
@@ -100,7 +209,6 @@ export default function App() {
     });
   };
 
-  // --- Actions ---
   const handleCreateMeeting = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formRound || !formDate) return alert("กรุณากรอกข้อมูลให้ครบถ้วน");
@@ -154,9 +262,8 @@ export default function App() {
     alert("แทรกรายชื่อผู้สังเกตการณ์สำเร็จ");
   };
 
-  // --- Live Metrics ---
   const dynamicStats = useMemo(() => {
-    let filtered = meetings.filter(m => m.fiscalYear === fiscalYear && (selectedCommittee === 'all' || m.committeeId === selectedCommittee));
+    let filtered = meetings.filter(m => m.fiscalYear === fiscalYear);
     let total = filtered.length;
     let onsite = 0, online = 0, leave = 0, absent = 0;
 
@@ -171,89 +278,261 @@ export default function App() {
     });
 
     return { total, onsite, online, leave, absent };
-  }, [meetings, attendance, fiscalYear, selectedCommittee]);
+  }, [meetings, attendance, fiscalYear]);
 
   return (
-    <div className="flex min-h-screen bg-[#f4f6f8] text-slate-800 antialiased font-sans">
+    <div className="flex min-h-screen bg-[#f4f6f8] text-slate-800 antialiased font-sans text-xs">
       
-      {/* 🏙️ SIDEBAR DESIGN (สไตล์สีน้ำเงินเข้มหรูหราแบบรูปดีไซน์องค์กร) */}
-      <aside className="w-64 bg-[#0f172a] text-slate-200 flex flex-col fixed h-full z-20 shadow-xl border-r border-slate-800">
-        <div className="p-5 bg-[#1e293b] border-b border-slate-800">
-          <div className="text-sm font-extrabold text-blue-400 uppercase tracking-wider">สปสช. เขต 4 สระบุรี</div>
-          <div className="text-[10px] text-slate-400 mt-0.5 font-medium">ระบบบริหารองค์ประชุมองค์กร</div>
+      {/* 🏙️ SIDEBAR DESIGN (ถอดแบบโครงสร้างจากภาพตัวอย่าง) */}
+      <aside className="w-60 bg-[#0f172a] text-slate-200 flex flex-col fixed h-full z-20 shadow-xl">
+        <div className="p-4 bg-[#1e293b] border-b border-slate-800 flex items-center gap-2">
+          <div className="w-7 h-7 bg-white rounded-md flex items-center justify-center font-bold text-[#0f172a] text-xs">nn</div>
+          <div>
+            <div className="text-xs font-bold text-slate-100 tracking-tight">ระบบเช็คชื่อคณะ</div>
+            <div className="text-[10px] text-blue-400 font-semibold tracking-wider">กรรมการ</div>
+            <div className="text-[9px] text-slate-500 font-medium scale-95 origin-left">Prototype สำหรับ AppSheet</div>
+          </div>
         </div>
         
-        <nav className="flex-1 p-4 space-y-1">
+        <nav className="flex-1 p-2 space-y-0.5">
           {[
-            { id: 'dashboard', label: 'หน้าแรก (Dashboard)', icon: Home },
-            { id: 'manage_meetings', label: 'จัดการการประชุม', icon: Calendar },
-            { id: 'manage_committees', label: 'รายชื่อคณะกรรมการ', icon: Users },
-            { id: 'check_attendance', label: 'ระบบเช็คชื่อ (Hybrid)', icon: CheckSquare },
-            { id: 'generate_report', label: 'รายงาน Word / Excel', icon: FileText },
+            { id: 'dashboard', label: 'ภาพรวม', icon: Home },
+            { id: 'manage_meetings', label: 'การประชุม', icon: Calendar },
+            { id: 'manage_committees', label: 'รายชื่อคณะ', icon: Users },
+            { id: 'check_attendance', label: 'เช็คชื่อ', icon: CheckSquare },
+            { id: 'generate_report', label: 'รายงาน Word', icon: FileText },
           ].map((item) => {
             const isActive = currentTab === item.id;
             return (
               <button
-                key={item.id}
+                key={item.id;
                 onClick={() => setCurrentTab(item.id)}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left text-xs font-bold transition-all ${
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left text-xs font-medium transition-all ${
                   isActive 
-                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' 
-                    : 'text-slate-400 hover:bg-slate-800 hover:text-slate-100'
+                    ? 'bg-blue-600/10 text-blue-400 font-bold border-l-4 border-blue-500 rounded-l-none' 
+                    : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'
                 }`}
               >
-                <item.icon size={16} />
                 {item.label}
               </button>
             );
           })}
         </nav>
         
-        <div className="p-4 bg-[#090d16] border-t border-slate-800 text-center text-[10px] font-semibold text-emerald-400 tracking-wider">
-          ● REALTIME DATABASE CONNECTED
+        <div className="p-4 text-[10px] text-slate-600 font-medium bg-[#090d16] border-t border-slate-900 leading-relaxed">
+          Mockup จำลองจากฐานข้อมูล Member, Committee, Membership, Meeting และ Attendance เพื่อให้ดูรูปแบบก่อนสร้างระบบจริง
         </div>
       </aside>
 
-      {/* 📦 CONTENT CONTAINER */}
-      <div className="flex-1 ml-64 p-8 min-h-screen flex flex-col">
+      {/* 📦 MAIN CONTENT */}
+      <div className="flex-1 ml-60 p-6 min-h-screen bg-[#f8fafc]">
         
-        {/* TOP BRANDING BAR */}
-        <header className="bg-white p-5 rounded-2xl border border-slate-200 mb-6 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div>
-            <h2 className="text-lg font-bold text-slate-900 tracking-tight">
-              {currentTab === 'dashboard' && 'แดชบอร์ดติดตามข้อมูลและสถิติองค์ประชุม'}
-              {currentTab === 'manage_meetings' && 'วางแผนกำหนดการและจัดระเบียบวาระ'}
-              {currentTab === 'manage_committees' && 'ทะเบียนรายชื่อและทำเนียบคณะอนุกรรมการแต่งตั้ง'}
-              {currentTab === 'check_attendance' && 'บันทึกเวลาเข้าร่วมการประชุมระบบ Hybrid'}
-              {currentTab === 'generate_report' && 'พิมพ์เอกสารสรุปสถิติมติที่ประชุมประจำงวด'}
-            </h2>
-            <p className="text-[11px] text-slate-400 mt-0.5">ระบบเชื่อมต่อโครงสร้างไฟล์ฐานข้อมูลหลัก สปสช.</p>
-          </div>
-          <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5">
-            <span className="text-[11px] font-bold text-slate-500">ปีงบประมาณประมวลผล:</span>
-            <select value={fiscalYear} onChange={(e) => setFiscalYear(e.target.value)} className="bg-transparent font-bold text-xs text-slate-800 focus:outline-none">
-              <option value="2569">2569</option>
-              <option value="2568">2568</option>
-            </select>
-          </div>
-        </header>
+        {/* TOP USER STATE BAR */}
+        <div className="flex justify-end items-center mb-4 text-slate-500 font-medium">
+          <span className="bg-slate-100 border border-slate-200 px-3 py-1 rounded-full text-[10px] text-slate-600">
+            ผู้บันทึก: <strong className="text-slate-800">admin@nhso.go.th</strong>
+          </span>
+        </div>
 
-        {/* ---------------- VIEW 1: DASHBOARD ---------------- */}
-        {currentTab === 'dashboard' && (
-          <div className="space-y-6">
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-              <label className="block text-[11px] font-bold text-slate-400 mb-2 uppercase">กรองชุดรายชื่อคณะกรรมการเพื่อวิเคราะห์</label>
-              <select 
-                value={selectedCommittee} 
-                onChange={(e) => setSelectedCommittee(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs font-bold text-slate-700"
-              >
-                <option value="all">📊 แสดงสถิติและประวัติรวมทุกคณะอนุกรรมการทั้งหมด</option>
-                {committees.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
+        {/* ---------------- VIEW: รายชื่อคณะ (ถอดจากภาพ 100%) ---------------- */}
+        {currentTab === 'manage_committees' && (
+          <div className="space-y-4">
+            <div>
+              <h2 className="text-lg font-bold text-slate-900 tracking-tight">แก้ไขรายชื่อคณะกรรมการ</h2>
+              <p className="text-slate-400 text-[11px] mt-0.5">จัดการสมาชิกและองค์ประชุมของแต่ละคณะ</p>
             </div>
 
-            {/* KPI METRICS */}
+            {/* ส่วนที่ 1: เลือกคณะกรรมการ & องค์ประชุมขั้นต่ำ */}
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-400 mb-1">เลือกคณะกรรมการ</label>
+                <select 
+                  value={selectedCommittee}
+                  onChange={(e) => {
+                    setSelectedCommittee(e.target.value);
+                    const comm = committees.find(c => c.id === e.target.value);
+                    if (comm) setMinQuorum(String(comm.quorum));
+                  }}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 font-semibold text-slate-700 focus:outline-none"
+                >
+                  {committees.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[11px] font-bold text-slate-400 mb-1">องค์ประชุมขั้นต่ำ</label>
+                <input 
+                  type="number" 
+                  value={minQuorum}
+                  onChange={(e) => setMinQuorum(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 font-semibold text-slate-700 text-center focus:outline-none"
+                />
+              </div>
+              <button 
+                type="button"
+                onClick={handleSaveQuorum}
+                className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs py-2 px-4 rounded-lg transition-colors w-fit"
+              >
+                บันทึกองค์ประชุม
+              </button>
+            </div>
+
+            {/* ส่วนที่ 2: ฟอร์มกรอกเพิ่มรายชื่อใหม่เข้าคณะ */}
+            <form onSubmit={handleAddNewMemberToCommittee} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-400 mb-1">ชื่อ-นามสกุล</label>
+                <input 
+                  type="text" 
+                  placeholder="ชื่อ-นามสกุล" 
+                  value={newMemberName}
+                  onChange={(e) => setNewMemberName(e.target.value)}
+                  className="w-full border border-slate-200 rounded-lg p-2 text-xs focus:outline-none focus:border-blue-500 bg-white"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-bold text-slate-400 mb-1">ตำแหน่ง</label>
+                <input 
+                  type="text" 
+                  placeholder="เช่น กรรมการ, เลขานุการ" 
+                  value={newMemberRole}
+                  onChange={(e) => setNewMemberRole(e.target.value)}
+                  className="w-full border border-slate-200 rounded-lg p-2 text-xs focus:outline-none focus:border-blue-500 bg-white"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-bold text-slate-400 mb-1">หน่วยงาน</label>
+                <input 
+                  type="text" 
+                  placeholder="หน่วยงาน" 
+                  value={newMemberDept}
+                  onChange={(e) => setNewMemberDept(e.target.value)}
+                  className="w-full border border-slate-200 rounded-lg p-2 text-xs focus:outline-none focus:border-blue-500 bg-white"
+                />
+              </div>
+              <button 
+                type="submit"
+                className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs py-2 px-4 rounded-lg transition-colors w-fit"
+              >
+                เพิ่มเข้าคณะ
+              </button>
+            </form>
+
+            {/* ส่วนที่ 3: ระบบ Import รายชื่อจากไฟล์ (.csv) */}
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-400 mb-1">Import รายชื่อเข้าคณะนี้ (.csv)</label>
+                <div className="flex items-center gap-1">
+                  <button 
+                    type="button"
+                    onClick={() => document.getElementById('csv-file')?.click()}
+                    className="border border-slate-300 rounded-lg bg-slate-50 p-2 text-slate-600 hover:bg-slate-100 font-semibold text-xs"
+                  >
+                    เลือกไฟล์
+                  </button>
+                  <span className="text-slate-400 text-[11px]">ไม่ได้เลือกไฟล์ใด</span>
+                  <input type="file" id="csv-file" accept=".csv" className="hidden" onChange={handleImportCSVFake} />
+                </div>
+              </div>
+              <div className="flex gap-2 pt-4 md:pt-0">
+                <button 
+                  type="button"
+                  onClick={handleImportCSVFake}
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs py-2 px-4 rounded-lg transition-colors"
+                >
+                  Import รายชื่อ
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => alert("ดาวน์โหลดไฟล์ตัวอย่างฟอร์แมต CSV เรียบร้อย")}
+                  className="border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 font-bold text-xs py-2 px-3 rounded-lg transition-colors"
+                >
+                  ดาวน์โหลดไฟล์ตัวอย่าง
+                </button>
+              </div>
+              <div>
+                <label className="block text-[11px] font-bold text-slate-400 mb-1">รูปแบบไฟล์</label>
+                <div className="bg-slate-50 border border-slate-200 text-slate-600 text-center rounded-lg p-2 font-mono font-bold tracking-tight text-[11px]">
+                  ชื่อ_นามสกุล,ตำแหน่ง,หน่วยงาน
+                </div>
+              </div>
+            </div>
+
+            {/* ส่วนที่ 4: แสดงรายชื่อตารางกรรมการหลัก & กล่องขวาเพิ่มจากรายชื่อเดิม */}
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+              
+              {/* ตารางแสดงผลสมาชิกประธาน/กรรมการหลัก */}
+              <div className="lg:col-span-3 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                <div className="p-3 bg-slate-50/50 border-b border-slate-200 font-bold text-slate-800 text-xs flex justify-between items-center">
+                  <span>{currentCommitteeInfo?.name || 'คณะกรรมการ'}</span>
+                  <span className="bg-blue-50 text-blue-600 border border-blue-100 rounded-full px-2 py-0.5 text-[10px] font-bold">
+                    {currentCommitteeMembers.length} คน
+                  </span>
+                </div>
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 font-bold text-slate-400 border-b border-slate-100 text-[10px] uppercase">
+                    <tr>
+                      <th className="p-3">ชื่อ-นามสกุล</th>
+                      <th className="p-3">ตำแหน่ง</th>
+                      <th className="p-3">หน่วยงาน</th>
+                      <th className="p-3 text-center w-32">จัดการ</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+                    {currentCommitteeMembers.map(m => (
+                      <tr key={m.membershipId} className="hover:bg-slate-50/40">
+                        <td className="p-3 font-bold text-slate-900">
+                          {m.name}
+                          <div className="text-[9px] text-slate-400 font-mono mt-0.5">{m.memberId}</div>
+                        </td>
+                        <td className="p-3 text-amber-600 font-semibold">{m.position}</td>
+                        <td className="p-3 text-slate-500">{m.department}</td>
+                        <td className="p-3 text-center">
+                          <button 
+                            type="button"
+                            onClick={() => handleRemoveMemberFromCommittee(m.membershipId)}
+                            className="border border-slate-200 bg-white hover:bg-rose-50 hover:text-rose-600 text-slate-600 text-[11px] font-bold py-1 px-2.5 rounded-lg transition-all"
+                          >
+                            ลบออกจากคณะ
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* กล่องข้างขวา: เพิ่มจากรายชื่อเดิม (ถอดแบบ 100%) */}
+              <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm h-fit space-y-3">
+                <div className="font-bold text-slate-800 text-xs border-b border-slate-100 pb-2">
+                  เพิ่มจากรายชื่อเดิม
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-400 mb-1">เลือกกรรมการ</label>
+                  <select 
+                    value={selectedExistingMemberId}
+                    onChange={(e) => setSelectedExistingMemberId(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 text-xs rounded-lg p-2 font-medium text-slate-700 focus:outline-none"
+                  >
+                    {members.map(m => (
+                      <option key={m.id} value={m.id}>{m.name} - {m.position}</option>
+                    ))}
+                  </select>
+                </div>
+                <button 
+                  type="button"
+                  onClick={handleAddExistingMemberToCommittee}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs py-2 rounded-lg transition-colors"
+                >
+                  เพิ่มเข้าคณะนี้
+                </button>
+              </div>
+
+            </div>
+          </div>
+        )}
+
+        {/* ---------------- VIEW: DASHBOARD ---------------- */}
+        {currentTab === 'dashboard' && (
+          <div className="space-y-4">
             <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
               {[
                 { label: 'การประชุมทั้งหมด', val: `${dynamicStats.total} ครั้ง`, color: 'bg-blue-50 border-blue-200 text-blue-700' },
@@ -262,66 +541,24 @@ export default function App() {
                 { label: 'ลาประชุม', val: `${dynamicStats.leave} คน`, color: 'bg-amber-50 border-amber-200 text-amber-700' },
                 { label: 'ขาดประชุม', val: `${dynamicStats.absent} คน`, color: 'bg-rose-50 border-rose-200 text-rose-700' },
               ].map((card, idx) => (
-                <div key={idx} className={`p-4 rounded-xl border ${card.color} shadow-sm transition-transform hover:scale-[1.01]`}>
+                <div key={idx} className={`p-4 rounded-xl border ${card.color} shadow-sm`}>
                   <span className="text-[10px] font-bold uppercase tracking-wider block opacity-70">{card.label}</span>
-                  <span className="text-xl font-black mt-3 block tracking-tight">{card.val}</span>
+                  <span className="text-lg font-black mt-2 block tracking-tight">{card.val}</span>
                 </div>
               ))}
             </div>
-
-            {/* MAIN RELATIONAL LOG TABLE */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-              <div className="p-4 bg-slate-50 border-b border-slate-200 font-bold text-xs text-slate-600 flex items-center gap-1.5">
-                <Filter size={14} className="text-blue-600" /> ทำเนียบสถิติและสถานะการเช็คชื่อแยกแต่ละรอบวาระ
-              </div>
-              <table className="w-full text-left text-xs">
-                <thead className="bg-slate-100 text-slate-500 font-bold border-b border-slate-200">
-                  <tr>
-                    <th className="p-3.5 text-center w-12">ลำดับ</th>
-                    <th className="p-3.5">ชื่อวาระนัดหมายการประชุม</th>
-                    <th className="p-3.5 text-center w-24">ครั้งที่</th>
-                    <th className="p-3.5 w-28">วันที่จัด</th>
-                    <th className="p-3.5 text-center text-emerald-600 w-16">Onsite</th>
-                    <th className="p-3.5 text-center text-sky-600 w-16">Online</th>
-                    <th className="p-3.5 text-center text-amber-600 w-14">ลา</th>
-                    <th className="p-3.5 text-center text-rose-600 w-14">ขาด</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
-                  {meetings
-                    .filter(m => m.fiscalYear === fiscalYear && (selectedCommittee === 'all' || m.committeeId === selectedCommittee))
-                    .map((m, index) => {
-                      const att = attendance[m.id] || {};
-                      const cOn = Object.values(att).filter(x => x.status === "มาประชุม" && x.type === "onsite").length;
-                      const cOl = Object.values(att).filter(x => x.status === "มาประชุม" && x.type === "online").length;
-                      const cLe = Object.values(att).filter(x => x.status === "ลา").length;
-                      const cAb = Object.values(att).filter(x => x.status === "ขาด").length;
-
-                      return (
-                        <tr key={m.id} className="hover:bg-slate-50/50">
-                          <td className="p-3.5 text-center font-bold text-slate-300">{index + 1}</td>
-                          <td className="p-3.5 font-bold text-slate-900 text-[11px]">{m.name}</td>
-                          <td className="p-3.5 text-center font-bold text-blue-600 bg-blue-50/30">{m.round}</td>
-                          <td className="p-3.5 text-slate-500">{m.date}</td>
-                          <td className="p-3.5 text-center font-bold text-emerald-600 bg-emerald-50/20">{cOn}</td>
-                          <td className="p-3.5 text-center font-bold text-sky-600 bg-sky-50/20">{cOl}</td>
-                          <td className="p-3.5 text-center font-bold text-amber-600 bg-amber-50/20">{cLe}</td>
-                          <td className="p-3.5 text-center font-bold text-rose-600 bg-rose-50/20">{cAb}</td>
-                        </tr>
-                      );
-                  })}
-                </tbody>
-              </table>
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 text-slate-400 text-center">
+              เลือกดูระบบงานที่แถบเมนูด้านซ้ายเพื่อขยายผลทดสอบ
             </div>
           </div>
         )}
 
-        {/* ---------------- VIEW 2: MANAGE MEETINGS ---------------- */}
+        {/* ---------------- VIEW: MANAGE MEETINGS ---------------- */}
         {currentTab === 'manage_meetings' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm h-fit space-y-4">
               <div className="font-bold text-xs uppercase text-slate-400 border-b border-slate-100 pb-2 flex items-center gap-1.5">
-                <Plus size={15} className="text-blue-600" /> นัดหมายเพิ่มรอบใหม่
+                <Plus size={14} className="text-blue-600" /> นัดหมายเพิ่มรอบใหม่
               </div>
               <form onSubmit={handleCreateMeeting} className="space-y-3">
                 <div>
@@ -331,8 +568,8 @@ export default function App() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-500 mb-1">ครั้งที่จัด (เช่น 2/2569)</label>
-                  <input type="text" required placeholder="เช่น 2/2569" value={formRound} onChange={(e) => setFormRound(e.target.value)} className="w-full border border-slate-200 text-xs rounded-xl p-2" />
+                  <label className="block text-[11px] font-bold text-slate-500 mb-1">ครั้งที่จัด (เช่น 1/2569)</label>
+                  <input type="text" required placeholder="เช่น 1/2569" value={formRound} onChange={(e) => setFormRound(e.target.value)} className="w-full border border-slate-200 text-xs rounded-xl p-2" />
                 </div>
                 <div>
                   <label className="block text-[11px] font-bold text-slate-500 mb-1">วันที่ประชุม</label>
@@ -343,134 +580,50 @@ export default function App() {
                   <input type="text" placeholder="ระบุห้องประชุม หรือ ลิงก์ระบบซูม" value={formPlace} onChange={(e) => setFormPlace(e.target.value)} className="w-full border border-slate-200 text-xs rounded-xl p-2" />
                 </div>
                 <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs py-2.5 rounded-xl transition-all">
-                  สร้างและเปิดวิวกดเช็คชื่อ
+                  สร้างกำหนดการประชุม
                 </button>
               </form>
             </div>
-
-            <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-              <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-                <div className="relative w-64">
-                  <input type="text" placeholder="ค้นชื่องานนัดหมาย..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full border border-slate-200 rounded-xl py-1.5 pl-8 pr-3 text-xs" />
-                  <Search className="absolute left-2.5 top-2.5 text-slate-400" size={12} />
-                </div>
-              </div>
-              <table className="w-full text-left text-xs">
-                <thead className="bg-slate-100 font-bold text-slate-500 border-b border-slate-200">
-                  <tr>
-                    <th className="p-3">วาระนัดประชุม</th>
-                    <th className="p-3 w-24">วันที่ประชุม</th>
-                    <th className="p-3 w-20 text-center">สถานะ</th>
-                    <th className="p-3 w-16 text-center">เปิดระบบ</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
-                  {meetings.filter(m => m.name.toLowerCase().includes(searchQuery.toLowerCase())).map(m => (
-                    <tr key={m.id} className="hover:bg-slate-50/50">
-                      <td className="p-3 font-bold text-slate-800">
-                        {m.name}
-                        <div className="text-[10px] text-slate-400 font-normal mt-0.5">ครั้งที่ {m.round} • {m.place}</div>
-                      </td>
-                      <td className="p-3 text-slate-500">{m.date}</td>
-                      <td className="p-3 text-center">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${m.status === 'เสร็จสิ้น' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>{m.status}</span>
-                      </td>
-                      <td className="p-3 text-center">
-                        <button onClick={() => { setActiveMeetingId(m.id); setCurrentTab('check_attendance'); }} className="p-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg">
-                          <CheckSquare size={13} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm p-4 text-slate-400 text-center">
+              บันทึกโครงสร้างสำเร็จรูป
             </div>
           </div>
         )}
 
-        {/* ---------------- VIEW 3: MANAGE COMMITTEES ---------------- */}
-        {currentTab === 'manage_committees' && (
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-            <div className="p-4 bg-slate-50 border-b border-slate-200 font-bold text-xs uppercase text-slate-500">
-              ทะเบียนรายชื่อบุคคลและคณะกรรมการแต่งตั้งรวมกลาง (Master Database)
-            </div>
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-100 text-slate-500 font-bold border-b border-slate-200">
-                <tr>
-                  <th className="p-3 text-center w-14">รหัสบุคคล</th>
-                  <th className="p-3">ชื่อ - นามสกุลอนุกรรมการ</th>
-                  <th className="p-3">ตำแหน่งทางการ</th>
-                  <th className="p-3">ฝ่ายงานต้นสังกัด</th>
-                  <th className="p-3 text-center w-24">สถานะการใช้งาน</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
-                {members.map(m => (
-                  <tr key={m.id} className="hover:bg-slate-50/50">
-                    <td className="p-3 text-center font-bold text-slate-400 bg-slate-50/40">{m.id}</td>
-                    <td className="p-3 font-bold text-slate-900">{m.name}</td>
-                    <td className="p-3 text-slate-500">{m.position}</td>
-                    <td className="p-3 text-slate-400">{m.department}</td>
-                    <td className="p-3 text-center">
-                      <span className="bg-green-50 text-green-700 border border-green-200 text-[10px] font-bold px-2 py-0.5 rounded">{m.status}</span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {/* ---------------- VIEW 4: ATTENDANCE SYSTEM ---------------- */}
+        {/* ---------------- VIEW: ATTENDANCE SYSTEM ---------------- */}
         {currentTab === 'check_attendance' && (
           <div className="space-y-6">
             <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-              <label className="block text-[11px] font-bold text-slate-400 mb-1.5 uppercase">เลือกหัวข้อการประชุมที่เปิดระบบเพื่อเช็คชื่อผู้เข้าร่วม</label>
+              <label className="block text-[11px] font-bold text-slate-400 mb-1.5 uppercase">เลือกหัวข้อการประชุมเพื่อเช็คชื่อผู้เข้าร่วม</label>
               <select value={activeMeetingId} onChange={(e) => setActiveMeetingId(e.target.value)} className="w-full bg-slate-50 border border-slate-200 text-xs font-bold text-slate-700 p-2.5 rounded-xl">
                 {meetings.map(m => <option key={m.id} value={m.id}>{m.name} (รอบครั้งที่ {m.round})</option>)}
               </select>
             </div>
 
-            {/* ส่วนที่ 1: บัญชีเช็คชื่อกรรมการแต่งตั้ง */}
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-              <div className="p-4 bg-slate-900 text-white flex justify-between items-center text-xs font-bold shadow-inner">
-                <span className="flex items-center gap-1.5 text-blue-300">📋 รายชื่อคณะอนุกรรมการผู้มีสิทธิ์ลงชื่อและออกมติรอบนี้</span>
-                <span className="bg-slate-800 border border-slate-700 px-2 py-0.5 rounded font-mono text-[10px]">
-                  รหัสอ้างอิงคณะ: {meetings.find(m => m.id === activeMeetingId)?.committeeId}
-                </span>
-              </div>
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-100 font-bold text-slate-500 border-b border-slate-200">
                   <tr>
-                    <th className="p-3 text-center w-12">ที่</th>
                     <th className="p-3">ชื่อ-นามสกุลอนุกรรมการ</th>
                     <th className="p-3">บทบาทหน้าที่</th>
-                    <th className="p-3 text-center w-96">เลือกวิธีเช็คชื่อเข้าประชุม (Hybrid Model)</th>
+                    <th className="p-3 text-center w-80">เลือกวิธีเช็คชื่อเข้าประชุม (Hybrid Model)</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-medium">
-                  {getCommitteeMembers(meetings.find(m => m.id === activeMeetingId)?.committeeId || '').map((m, idx) => {
+                  {getCommitteeMembers(meetings.find(m => m.id === activeMeetingId)?.committeeId || '').map((m) => {
                     const currentRecord = attendance[activeMeetingId]?.[m.id] || { status: 'ขาด', type: '-' };
-                    
                     const updateStatus = (st: string, tp: string) => {
                       const currentMeetingAtt = attendance[activeMeetingId] || {};
                       setAttendance({
                         ...attendance,
-                        [activeMeetingId]: {
-                          ...currentMeetingAtt,
-                          [m.id]: { status: st, type: tp, personType: 'member' }
-                        }
+                        [activeMeetingId]: { ...currentMeetingAtt, [m.id]: { status: st, type: tp, personType: 'member' } }
                       });
                     };
 
                     return (
                       <tr key={m.id} className="hover:bg-slate-50/50">
-                        <td className="p-3 text-center font-bold text-slate-300">{idx + 1}</td>
-                        <td className="p-3 font-bold text-slate-800">
-                          {m.name}
-                          <div className="text-[10px] text-slate-400 font-normal mt-0.5">{m.department}</div>
-                        </td>
-                        <td className="p-3 text-slate-500 font-semibold">{m.role || 'อนุกรรมการ'}</td>
+                        <td className="p-3 font-bold text-slate-800">{m.name}<div className="text-[10px] text-slate-400 font-normal">{m.department}</div></td>
+                        <td className="p-3 text-slate-500 font-semibold">{m.role || 'กรรมการ'}</td>
                         <td className="p-3">
                           <div className="grid grid-cols-4 gap-1">
                             {[
@@ -485,8 +638,8 @@ export default function App() {
                                   key={btn.id}
                                   type="button"
                                   onClick={() => updateStatus(btn.act, btn.act === 'มาประชุม' ? btn.id : '-')}
-                                  className={`py-1.5 rounded-lg font-bold border text-[11px] text-center transition-all ${
-                                    isSelected ? 'bg-blue-600 text-white border-blue-600 shadow-sm' : 'bg-slate-50 text-slate-400 hover:bg-slate-100 border-slate-200'
+                                  className={`py-1 rounded-md font-bold text-[10px] text-center transition-all ${
+                                    isSelected ? 'bg-blue-600 text-white shadow-sm' : 'bg-slate-50 text-slate-400 border border-slate-200'
                                   }`}
                                 >
                                   {btn.label}
@@ -501,94 +654,19 @@ export default function App() {
                 </tbody>
               </table>
             </div>
-
-            {/* ส่วนที่ 2: ระบบแทรกรายชื่อผู้สังเกตการณ์/ผู้เข้าร่วมเพิ่มเติม */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-3 h-fit">
-                <div className="text-xs font-bold text-slate-700 flex items-center gap-1 uppercase">
-                  <Video size={14} className="text-blue-500" /> เพิ่มรายชื่อผู้สังเกตการณ์ภายนอก (Guest)
-                </div>
-                <div className="space-y-2">
-                  <input type="text" placeholder="ชื่อ-นามสกุลผู้เข้าร่วมเพิ่ม" value={guestName} onChange={(e) => setGuestName(e.target.value)} className="w-full border border-slate-200 p-2 text-xs rounded-lg" />
-                  <input type="text" placeholder="บทบาท/ตำแหน่งงาน" value={guestRole} onChange={(e) => setGuestRole(e.target.value)} className="w-full border border-slate-200 p-2 text-xs rounded-lg" />
-                  <input type="text" placeholder="หน่วยงานสังกัดภายนอก" value={guestDept} onChange={(e) => setGuestDept(e.target.value)} className="w-full border border-slate-200 p-2 text-xs rounded-lg" />
-                  <button type="button" onClick={handleAddGuest} className="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs py-2 rounded-lg transition-colors">
-                    + แทรกรายชื่อเฉพาะวาระรอบนี้
-                  </button>
-                </div>
-              </div>
-
-              <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                <div className="p-3 bg-slate-50 border-b border-slate-200 font-bold text-slate-400 text-[11px]">
-                  รายนามผู้เข้าร่วมประชุมเพิ่มเติมประจำวาระรอบนี้
-                </div>
-                <div className="max-h-[220px] overflow-y-auto divide-y divide-slate-100 text-xs">
-                  {Object.entries(attendance[activeMeetingId] || {}).filter(([_, v]) => v.personType === 'guest').length === 0 ? (
-                    <div className="p-5 text-center text-slate-400 font-medium">ยังไม่มีข้อมูลรายชื่อผู้สังเกตการณ์ถูกเพิ่มเข้ามา</div>
-                  ) : (
-                    Object.entries(attendance[activeMeetingId] || {}).filter(([_, v]) => v.personType === 'guest').map(([id, g]) => (
-                      <div key={id} className="p-3 flex justify-between items-center font-medium">
-                        <div>
-                          <div className="font-bold text-slate-800">{g.name}</div>
-                          <div className="text-[10px] text-slate-400 mt-0.5">{g.dept} • {g.role}</div>
-                        </div>
-                        <div className="flex gap-1 w-52">
-                          {['onsite', 'online', 'ลา', 'ขาด'].map(st => {
-                            const active = g.status === 'มาประชุม' ? g.type === st : g.status === st;
-                            return (
-                              <button
-                                key={st}
-                                onClick={() => {
-                                  const attMap = attendance[activeMeetingId] || {};
-                                  attMap[id] = { ...g, status: (st==='onsite'||st==='online')?'มาประชุม':st, type: (st==='onsite'||st==='online')?st:'-' };
-                                  setAttendance({ ...attendance, [activeMeetingId]: { ...attMap } });
-                                }}
-                                className={`flex-1 font-bold text-[10px] py-0.5 border text-center rounded ${active?'bg-slate-800 text-white border-slate-800':'bg-white text-slate-400'}`}
-                              >
-                                {st}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="flex justify-end pt-4 border-t border-slate-200">
-              <button 
-                type="button" 
-                onClick={() => {
-                  const target = meetings.find(x => x.id === activeMeetingId);
-                  if (target) target.status = "เสร็จสิ้น";
-                  setMeetings([...meetings]);
-                  alert("บันทึกประวัติความครบถ้วนองค์ประชุม สปสช. เข้าสู่ศูนย์คลังรายงานเสร็จสิ้น!");
-                  setCurrentTab('dashboard');
-                }}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-6 py-2.5 rounded-xl shadow-md transition-all"
-              >
-                บันทึกปิดรอบการจัดประชุมและยืนยันองค์ประชุม
-              </button>
-            </div>
           </div>
         )}
 
-        {/* ---------------- VIEW 5: PRINT REPORT ---------------- */}
+        {/* ---------------- VIEW: PRINT REPORT ---------------- */}
         {currentTab === 'generate_report' && (
           <div className="max-w-md mx-auto bg-white p-6 rounded-2xl border border-slate-200 shadow-sm text-center space-y-4">
-            <FileSpreadsheet size={40} className="text-blue-600 mx-auto bg-blue-50 p-2 rounded-xl" />
+            <FileSpreadsheet size={36} className="text-blue-600 mx-auto bg-blue-50 p-2 rounded-xl" />
             <div>
-              <h3 className="font-bold text-slate-800 text-sm">เครื่องมือแปลงส่งออกประวัติสถิติมติที่ประชุม</h3>
-              <p className="text-xs text-slate-400 mt-1">สร้างไฟล์เอกสารสรุปความครบถ้วนองค์ประชุมตามแบบฟอร์ม พรบ. หลักประกันสุขภาพ</p>
+              <h3 className="font-bold text-slate-800 text-xs">เครื่องมือส่งออกประวัติรายงาน</h3>
+              <p className="text-[11px] text-slate-400 mt-1">ดาวน์โหลดรูปแบบฟอร์มสรุปสถิติความครบถ้วนประจำงวด</p>
             </div>
-            <div className="bg-slate-50 border border-slate-100 p-4 rounded-xl text-left text-xs font-semibold space-y-1.5 text-slate-600">
-              <div>• สังกัดคลังข้อมูล: <span className="text-slate-900 font-bold">สำนักงาน สปสช. เขต 4 สระบุรี</span></div>
-              <div>• รูปแบบเอกสารสรุป: <span className="text-blue-600 font-bold">Microsoft Word Template (.docx)</span></div>
-            </div>
-            <button onClick={() => alert(`ดึงสถิติงบประมาณปี ${fiscalYear} แปลงข้อมูลเพื่อดาวน์โหลด .docx สำเร็จ!`)} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs py-2.5 rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm">
-              ดาวน์โหลดรายงานสรุปองค์ประชุม (.docx)
+            <button onClick={() => alert(`แปลงข้อมูลดาวน์โหลดเอกสารสำเร็จ!`)} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs py-2 rounded-xl transition-all shadow-sm">
+              ดาวน์โหลดรายงาน (.docx)
             </button>
           </div>
         )}
