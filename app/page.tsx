@@ -57,8 +57,8 @@ const INITIAL_ATTENDANCE: Record<string, Record<string, { status: string; type: 
 };
 
 export default function App() {
-  // --- UI Views & Control State ---
-  const [currentTab, setCurrentTab] = useState<string>('manage_committees'); // ตั้งมาหน้าจัดการคณะตามรีเควสหลัก
+  // --- UI Views ---
+  const [currentTab, setCurrentTab] = useState<string>('manage_committees'); 
   
   // --- Database States ---
   const [committees, setCommittees] = useState(INITIAL_COMMITTEES);
@@ -67,23 +67,23 @@ export default function App() {
   const [meetings, setMeetings] = useState(INITIAL_MEETINGS);
   const [attendance, setAttendance] = useState(INITIAL_ATTENDANCE);
 
-  // --- Filtering & Active Selectors ---
+  // --- Selectors ---
   const [fiscalYear, setFiscalYear] = useState<string>('2569');
   const [selectedCommittee, setSelectedCommittee] = useState<string>('C001');
   const [activeMeetingId, setActiveMeetingId] = useState<string>('MT001');
 
-  // --- หน้ารายชื่อคณะกรรมการ Form States ---
+  // --- Form States (หน้ารายชื่อคณะ) ---
   const [minQuorum, setMinQuorum] = useState<string>('5');
   const [newMemberName, setNewMemberName] = useState<string>('');
   const [newMemberRole, setNewMemberRole] = useState<string>('');
   const [newMemberDept, setNewMemberDept] = useState<string>('');
 
-  // --- ฟอร์มเพิ่มรายชื่อด่วนในหน้า "เช็คชื่อ" ---
+  // --- Form States (ฟอร์มเพิ่มด่วนหน้าเช็คชื่อ) ---
   const [quickName, setQuickName] = useState('');
   const [quickRole, setQuickRole] = useState('');
   const [quickDept, setQuickDept] = useState('');
 
-  // --- Form States สำหรับเพิ่ม/แก้ไขการประชุม ---
+  // --- Form States (จัดการประชุม) ---
   const [formMeetingName, setFormMeetingName] = useState('');
   const [formRound, setFormRound] = useState('');
   const [formDate, setFormDate] = useState('');
@@ -92,7 +92,7 @@ export default function App() {
   const [editingMeetingId, setEditingMeetingId] = useState<string | null>(null);
 
   // ==========================================
-  // ⚡ ฟังก์ชันดาวน์โหลดไฟล์ Word จริงจากข้อมูลในระบบ
+  // ⚡ ฟังก์ชันดาวน์โหลดรายงาน Word
   // ==========================================
   const handleDownloadWord = (meetingId: string) => {
     const meeting = meetings.find(m => m.id === meetingId);
@@ -143,7 +143,7 @@ export default function App() {
     URL.revokeObjectURL(url);
   };
 
-  // --- คำนวณรายชื่อคณะกรรมการชุดปัจจุบัน ---
+  // --- ค้นหาและจัดการข้อมูลกรรมการในคณะ ---
   const currentCommitteeMembers = useMemo(() => {
     const rels = memberships.filter(ms => ms.committeeId === selectedCommittee);
     return rels.map(r => {
@@ -177,7 +177,7 @@ export default function App() {
     alert("เพิ่มรายชื่อเข้าคณะกรรมการสำเร็จ");
   };
 
-  // --- ฟังก์ชันดึงไฟล์ Import กรรมการ (CSV) ตามรูปภาพ 100% ---
+  // --- ฟังก์ชันดึงไฟล์ Import กรรมการ (CSV) ตามรูปภาพ 3.jpg 100% ---
   const handleImportCSVReal = () => {
     const fakeCSVData = [
       { name: "ดร.นพ.สุรวิชญ์ เกษมสุข", position: "ผู้ทรงคุณวุฒิ", department: "โรงพยาบาลสระบุรี" },
@@ -246,7 +246,7 @@ export default function App() {
     });
   };
 
-  // --- Actions สำหรับจัดการประชุม ---
+  // --- Actions การประชุม ---
   const handleCreateOrUpdateMeeting = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formRound || !formDate || !formMeetingName.trim()) return alert("กรุณากรอกข้อมูลให้ครบถ้วน");
@@ -279,19 +279,18 @@ export default function App() {
   const dynamicStats = useMemo(() => {
     let filtered = meetings.filter(m => m.fiscalYear === fiscalYear);
     let total = filtered.length;
-    let onsite = 0, online = 0, leave = 0, absent = 0;
+    let onsite = 0, online = 0, leave = 0;
     filtered.forEach(m => {
       const records = attendance[m.id] || {};
       Object.values(records).forEach(r => {
-        if (r.status === "มาประชุม" || r.status === "เข้าร่วม") {
-          if (r.type === "Onsite" || r.type === "onsite") onsite++;
-          if (r.type === "Online" || r.type === "online") online++;
+        if (r.status === "เข้าร่วม") {
+          if (r.type === "Onsite") onsite++;
+          if (r.type === "Online") online++;
         }
         if (r.status === "ลา") leave++;
-        if (r.status === "ขาด") absent++;
       });
     });
-    return { total, onsite, online, leave, absent };
+    return { total, onsite, online, leave };
   }, [meetings, attendance, fiscalYear]);
 
   // --- คำนวณสถิติองค์ประชุมหน้าเช็คชื่อ ---
@@ -331,10 +330,15 @@ export default function App() {
     };
   }, [activeMeetingId, meetings, attendance, committees]);
 
+  const handleRemoveMemberFromCommittee = (mId: string) => {
+    setMemberships(prev => prev.filter(ms => ms.id !== mId));
+    alert("ลบออกจากคณะเรียบร้อยแล้ว");
+  };
+
   return (
     <div className="flex min-h-screen bg-[#f4f6f8] text-slate-800 antialiased font-sans text-sm">
       
-      {/* 🏙️ SIDEBAR DESIGN */}
+      {/* SIDEBAR */}
       <aside className="w-64 bg-[#0f172a] text-slate-200 flex flex-col fixed h-full z-20 shadow-xl">
         <div className="p-4 bg-[#1e293b] border-b border-slate-800 flex items-center gap-2">
           <div className="w-8 h-8 bg-blue-600 rounded-md flex items-center justify-center font-bold text-white text-sm">NH4</div>
@@ -369,18 +373,14 @@ export default function App() {
             );
           })}
         </nav>
-        
-        <div className="p-4 text-xs text-slate-500 font-medium bg-[#090d16] border-t border-slate-900 leading-relaxed">
-          ระบบสารสนเทศติดตามงบและรายงานองค์ประชุม สปสช. เขต 4 สระบุรี
-        </div>
       </aside>
 
-      {/* 📦 MAIN CONTENT */}
+      {/* MAIN MAIN */}
       <div className="flex-1 ml-64 p-6 min-h-screen bg-[#f8fafc]">
         
-        {/* TOP USER STATE BAR */}
-        <div className="flex justify-end items-center mb-5 text-slate-500 font-medium">
-          <span className="bg-slate-100 border border-slate-200 px-4 py-1.5 rounded-full text-xs text-slate-600">
+        {/* TOP STATUS */}
+        <div className="flex justify-end items-center mb-5">
+          <span className="bg-slate-100 border border-slate-200 px-4 py-1.5 rounded-full text-xs text-slate-600 font-medium">
             ผู้บันทึก: <strong className="text-slate-800">admin@nhso.go.th</strong>
           </span>
         </div>
@@ -389,20 +389,18 @@ export default function App() {
         {currentTab === 'dashboard' && (
           <div className="space-y-5">
             <div>
-              <h2 className="text-xl font-bold text-slate-900 tracking-tight">ภาพรวมข้อมูลการเข้าประชุม</h2>
-              <p className="text-slate-400 text-xs mt-0.5">สรุปสถิติจำนวนครั้งและจำนวนผู้มาประชุมของระบบงวดปัจจุบัน</p>
+              <h2 className="text-xl font-bold text-slate-900">ภาพรวมข้อมูลการเข้าประชุม</h2>
             </div>
-            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               {[
                 { label: 'การประชุมทั้งหมด', val: `${dynamicStats.total} ครั้ง`, color: 'bg-blue-50 border-blue-200 text-blue-700' },
-                { label: 'มาประชุม ( onsite )', val: `${dynamicStats.onsite} คน`, color: 'bg-emerald-50 border-emerald-200 text-emerald-700' },
-                { label: 'มาประชุม ( online )', val: `${dynamicStats.online} คน`, color: 'bg-sky-50 border-sky-200 text-sky-700' },
+                { label: 'มาประชุม ( Onsite )', val: `${dynamicStats.onsite} คน`, color: 'bg-emerald-50 border-emerald-200 text-emerald-700' },
+                { label: 'มาประชุม ( Online )', val: `${dynamicStats.online} คน`, color: 'bg-sky-50 border-sky-200 text-sky-700' },
                 { label: 'ลาประชุม', val: `${dynamicStats.leave} คน`, color: 'bg-amber-50 border-amber-200 text-amber-700' },
-                { label: 'ขาดประชุม', val: `${dynamicStats.absent} คน`, color: 'bg-rose-50 border-rose-200 text-rose-700' },
               ].map((card, idx) => (
                 <div key={idx} className={`p-4 rounded-xl border ${card.color} shadow-sm`}>
                   <span className="text-xs font-bold uppercase tracking-wider block opacity-70">{card.label}</span>
-                  <span className="text-2xl font-black mt-2 block tracking-tight">{card.val}</span>
+                  <span className="text-2xl font-black mt-2 block">{card.val}</span>
                 </div>
               ))}
             </div>
@@ -413,7 +411,7 @@ export default function App() {
         {currentTab === 'manage_meetings' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm h-fit space-y-4">
-              <div className="font-bold text-sm uppercase text-slate-500 border-b border-slate-100 pb-2 flex items-center gap-1.5">
+              <div className="font-bold text-sm text-slate-500 border-b pb-2 flex items-center gap-1.5">
                 <Plus size={16} className="text-blue-600" /> {editingMeetingId ? 'แก้ไขข้อมูลการประชุม' : 'นัดหมายเพิ่มรอบใหม่'}
               </div>
               <form onSubmit={handleCreateOrUpdateMeeting} className="space-y-4">
@@ -423,12 +421,12 @@ export default function App() {
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-500 mb-1">เลือกสังกัดชุดคณะอนุกรรมการ</label>
-                  <select value={formCommId} onChange={(e) => setFormCommId(e.target.value)} className="w-full bg-slate-50 border border-slate-200 text-sm rounded-xl p-2.5 bg-white">
+                  <select value={formCommId} onChange={(e) => setFormCommId(e.target.value)} className="w-full bg-slate-50 border border-slate-200 text-sm rounded-xl p-2.5">
                     {committees.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 mb-1">ครั้งที่จัด (พิมพ์ระบุเองได้)</label>
+                  <label className="block text-xs font-bold text-slate-500 mb-1">ครั้งที่จัด</label>
                   <input type="text" required placeholder="เช่น 1/2569" value={formRound} onChange={(e) => setFormRound(e.target.value)} className="w-full border border-slate-200 text-sm rounded-xl p-2.5 focus:outline-none" />
                 </div>
                 <div>
@@ -439,55 +437,50 @@ export default function App() {
                   <label className="block text-xs font-bold text-slate-500 mb-1">สถานที่จัดประชุม</label>
                   <input type="text" placeholder="ระบุห้องประชุม สปสช." value={formPlace} onChange={(e) => setFormPlace(e.target.value)} className="w-full border border-slate-200 text-sm rounded-xl p-2.5" />
                 </div>
-                <div className="flex gap-2">
-                  <button type="submit" className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm py-2.5 rounded-xl transition-all">
-                    {editingMeetingId ? 'บันทึกการแก้ไข' : 'สร้างกำหนดการประชุม'}
-                  </button>
-                </div>
+                <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm py-2.5 rounded-xl transition-all">
+                  {editingMeetingId ? 'บันทึกการแก้ไข' : 'สร้างกำหนดการประชุม'}
+                </button>
               </form>
             </div>
 
             <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm p-5 overflow-hidden">
               <div className="font-bold text-sm text-slate-800 pb-3 border-b">รายการนัดหมายการประชุมในระบบ</div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm mt-2">
-                  <thead className="bg-slate-50 border-b text-slate-400 font-bold">
-                    <tr>
-                      <th className="p-3">ชื่อการประชุม / ครั้งที่</th>
-                      <th className="p-3">วันที่จัด</th>
-                      <th className="p-3 text-center w-32">จัดการ</th>
+              <table className="w-full text-left text-sm mt-2">
+                <thead className="bg-slate-50 text-slate-400 font-bold">
+                  <tr>
+                    <th className="p-3">ชื่อการประชุม / ครั้งที่</th>
+                    <th className="p-3">วันที่จัด</th>
+                    <th className="p-3 text-center w-32">จัดการ</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y font-medium text-slate-700">
+                  {meetings.map((m) => (
+                    <tr key={m.id} className="hover:bg-slate-50/50">
+                      <td className="p-3">
+                        <div className="font-bold text-slate-900 text-sm">{m.name}</div>
+                        <div className="text-xs text-blue-500 font-bold mt-1">ครั้งที่: {m.round}</div>
+                      </td>
+                      <td className="p-3 text-slate-500">{m.date}</td>
+                      <td className="p-3 text-center flex justify-center gap-2 pt-5">
+                        <button onClick={() => handleEditClick(m)} className="p-2 border rounded-lg text-amber-600 hover:bg-amber-50"><Edit size={14} /></button>
+                        <button onClick={() => handleDeleteMeeting(m.id)} className="p-2 border rounded-lg text-rose-600 hover:bg-rose-50"><Trash2 size={14} /></button>
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody className="divide-y font-medium text-slate-700">
-                    {meetings.map((m) => (
-                      <tr key={m.id} className="hover:bg-slate-50/50">
-                        <td className="p-3">
-                          <div className="font-bold text-slate-900 text-sm">{m.name}</div>
-                          <div className="text-xs text-blue-500 font-bold mt-1">ครั้งที่: {m.round}</div>
-                        </td>
-                        <td className="p-3 text-slate-500 text-sm">{m.date}</td>
-                        <td className="p-3 text-center flex items-center justify-center gap-2 pt-5">
-                          <button onClick={() => handleEditClick(m)} className="p-2 border rounded-lg hover:bg-amber-50 text-amber-600 transition-colors"><Edit size={14} /></button>
-                          <button onClick={() => handleDeleteMeeting(m.id)} className="p-2 border rounded-lg hover:bg-rose-50 text-rose-600 transition-colors"><Trash2 size={14} /></button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         )}
 
-        {/* ---------------- VIEW: รายชื่อคณะ (เพิ่มเมนู Import รายชื่อกรรมการ ตามภาพ 3.jpg 100%) ---------------- */}
+        {/* ---------------- VIEW: รายชื่อคณะ (มีปุ่ม Import ตามภาพ 3.jpg 100%) ---------------- */}
         {currentTab === 'manage_committees' && (
           <div className="space-y-4">
             <div>
-              <h2 className="text-xl font-bold text-slate-900 tracking-tight">แก้ไขรายชื่อคณะกรรมการ</h2>
+              <h2 className="text-xl font-bold text-slate-900">แก้ไขรายชื่อคณะกรรมการ</h2>
               <p className="text-slate-400 text-xs mt-0.5">จัดการสมาชิกและองค์ประชุมของแต่ละคณะ</p>
             </div>
 
-            {/* กล่องตั้งค่าส่วนบน */}
             <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
               <div>
                 <label className="block text-xs font-bold text-slate-400 mb-1">เลือกคณะกรรมการ</label>
@@ -497,80 +490,76 @@ export default function App() {
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-400 mb-1">องค์ประชุมขั้นต่ำ</label>
-                <input type="number" value={minQuorum} onChange={(e) => setMinQuorum(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 font-semibold text-slate-700 text-center text-sm focus:outline-none" />
+                <input type="number" value={minQuorum} onChange={(e) => setMinQuorum(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-center text-sm focus:outline-none" />
               </div>
               <button type="button" onClick={handleSaveQuorum} className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm py-2.5 px-5 rounded-lg transition-colors w-fit">บันทึกองค์ประชุม</button>
             </div>
 
-            {/* ฟอร์มเพิ่มรายชื่อแบบ Manual */}
             <form onSubmit={handleAddNewMemberToCommittee} className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
               <div>
                 <label className="block text-xs font-bold text-slate-400 mb-1">ชื่อ-นามสกุล</label>
-                <input type="text" placeholder="ชื่อ-นามสกุล" value={newMemberName} onChange={(e) => setNewMemberName(e.target.value)} className="w-full border border-slate-200 rounded-lg p-2.5 text-sm focus:outline-none focus:border-blue-500" />
+                <input type="text" placeholder="ชื่อ-นามสกุล" value={newMemberName} onChange={(e) => setNewMemberName(e.target.value)} className="w-full border border-slate-200 rounded-lg p-2.5 text-sm focus:outline-none" />
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-400 mb-1">ตำแหน่ง</label>
-                <input type="text" placeholder="เช่น กรรมการ" value={newMemberRole} onChange={(e) => setNewMemberRole(e.target.value)} className="w-full border border-slate-200 rounded-lg p-2.5 text-sm focus:outline-none focus:border-blue-500" />
+                <input type="text" placeholder="เช่น กรรมการ" value={newMemberRole} onChange={(e) => setNewMemberRole(e.target.value)} className="w-full border border-slate-200 rounded-lg p-2.5 text-sm focus:outline-none" />
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-400 mb-1">หน่วยงาน</label>
-                <input type="text" placeholder="หน่วยงาน" value={newMemberDept} onChange={(e) => setNewMemberDept(e.target.value)} className="w-full border border-slate-200 rounded-lg p-2.5 text-sm focus:outline-none focus:border-blue-500" />
+                <input type="text" placeholder="หน่วยงาน" value={newMemberDept} onChange={(e) => setNewMemberDept(e.target.value)} className="w-full border border-slate-200 rounded-lg p-2.5 text-sm focus:outline-none" />
               </div>
               <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm py-2.5 px-5 rounded-lg transition-colors w-fit">เพิ่มเข้าคณะ</button>
             </form>
 
-            {/* ส่วนแสดงตารางรายชื่อกรรมการ พร้อมปุ่มปุ่ม "Import" ตามภาพ 100% */}
-            <div className="grid grid-cols-1 gap-4">
-              <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                
-                {/* Header ตารางที่มีปุ่ม Import รายชื่อกรรมการ (CSV) ขวาเมนู ตามภาพต้นฉบับ */}
-                <div className="p-4 bg-slate-50/50 border-b border-slate-200 font-bold text-slate-800 text-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-                  <div className="flex items-center gap-2">
-                    <span>{currentCommitteeInfo?.name || 'คณะกรรมการ'}</span>
-                    <span className="bg-blue-50 text-blue-600 border border-blue-100 rounded-full px-3 py-1 text-xs font-bold">{currentCommitteeMembers.length} คน</span>
-                  </div>
-                  
-                  {/* ปุ่มเพิ่มเมนู Import ตามภาพ 100% */}
-                  <button
-                    type="button"
-                    onClick={handleImportCSVReal}
-                    className="inline-flex items-center gap-2 bg-[#107c41] hover:bg-[#0b592e] text-white font-bold text-xs py-2 px-4 rounded-lg transition-all shadow-sm"
-                  >
-                    <FileSpreadsheet size={15} />
-                    <span>Import รายชื่อกรรมการ (CSV)</span>
-                  </button>
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+              {/* Header ที่มีปุ่ม Import ครบตามภาพ 3.jpg 100% */}
+              <div className="p-4 bg-slate-50/50 border-b border-slate-200 font-bold text-slate-800 text-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                <div className="flex items-center gap-2">
+                  <span>{currentCommitteeInfo?.name || 'คณะกรรมการ'}</span>
+                  <span className="bg-blue-50 text-blue-600 border border-blue-100 rounded-full px-3 py-1 text-xs font-bold">{currentCommitteeMembers.length} คน</span>
                 </div>
-
-                <table className="w-full text-left text-sm">
-                  <thead className="bg-slate-50 font-bold text-slate-400 border-b border-slate-100 text-xs">
-                    <tr>
-                      <th className="p-3">ชื่อ-นามสกุล</th>
-                      <th className="p-3">ตำแหน่ง</th>
-                      <th className="p-3">หน่วยงาน</th>
-                      <th className="p-3 text-center w-36">จัดการ</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
-                    {currentCommitteeMembers.map(m => (
-                      <tr key={m.membershipId} className="hover:bg-slate-50/40">
-                        <td className="p-3 font-bold text-slate-900 text-sm">{m.name}</td>
-                        <td className="p-3 text-amber-600 font-semibold text-sm">{m.position}</td>
-                        <td className="p-3 text-slate-500 text-sm">{m.department}</td>
-                        <td className="p-3 text-center">
-                          <button type="button" onClick={() => handleRemoveMemberFromCommittee(m.membershipId)} className="border border-slate-200 bg-white hover:bg-rose-50 hover:text-rose-600 text-slate-600 text-xs font-bold py-1.5 px-3 rounded-lg transition-all">ลบออกจากคณะ</button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                
+                {/* ปุ่ม Import รายชื่อกรรมการ (CSV) สีเขียว ตามภาพ 100% */}
+                <button
+                  type="button"
+                  onClick={handleImportCSVReal}
+                  className="inline-flex items-center gap-2 bg-[#107c41] hover:bg-[#0b592e] text-white font-bold text-xs py-2 px-4 rounded-lg transition-all shadow-sm"
+                >
+                  <FileSpreadsheet size={15} />
+                  <span>Import รายชื่อกรรมการ (CSV)</span>
+                </button>
               </div>
+
+              <table className="w-full text-left text-sm">
+                <thead className="bg-slate-50 font-bold text-slate-400 border-b text-xs">
+                  <tr>
+                    <th className="p-3">ชื่อ-นามสกุล</th>
+                    <th className="p-3">ตำแหน่ง</th>
+                    <th className="p-3">หน่วยงาน</th>
+                    <th className="p-3 text-center w-36">จัดการ</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y font-medium text-slate-700">
+                  {currentCommitteeMembers.map(m => (
+                    <tr key={m.membershipId} className="hover:bg-slate-50/40">
+                      <td className="p-3 font-bold text-slate-900">{m.name}</td>
+                      <td className="p-3 text-amber-600 font-semibold">{m.position}</td>
+                      <td className="p-3 text-slate-500">{m.department}</td>
+                      <td className="p-3 text-center">
+                        <button type="button" onClick={() => handleRemoveMemberFromCommittee(m.membershipId)} className="border border-slate-200 hover:bg-rose-50 hover:text-rose-600 text-xs font-bold py-1.5 px-3 rounded-lg transition-all">ลบออกจากคณะ</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         )}
 
-        {/* ---------------- VIEW: ATTENDANCE SYSTEM (คงไว้ถอดตามภาพ 100%) ---------------- */}
+        {/* ---------------- VIEW: ATTENDANCE SYSTEM (โครงสร้างตามภาพ 4.jpg 100%) ---------------- */}
         {currentTab === 'check_attendance' && (
           <div className="space-y-5">
+            {/* 1. เลือกการประชุม */}
             <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-1">
               <label className="text-xs font-bold text-slate-400 uppercase">เลือกการประชุม</label>
               <select 
@@ -582,45 +571,26 @@ export default function App() {
               </select>
             </div>
 
+            {/* 2. แถบเพิ่มชื่อ-นามสกุล ตำแหน่ง หน่วยงาน ครบแถวเดียว */}
             <form onSubmit={handleAddQuickMember} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row items-end gap-3">
               <div className="flex-1 w-full">
                 <label className="block text-xs font-bold text-slate-400 mb-1">ชื่อ-นามสกุล</label>
-                <input 
-                  type="text" 
-                  placeholder="กรอกชื่อ-นามสกุล" 
-                  value={quickName} 
-                  onChange={(e) => setQuickName(e.target.value)}
-                  className="w-full border border-slate-200 rounded-lg p-2 text-sm focus:outline-none"
-                />
+                <input type="text" placeholder="กรอกชื่อ-นามสกุล" value={quickName} onChange={(e) => setQuickName(e.target.value)} className="w-full border border-slate-200 rounded-lg p-2 text-sm focus:outline-none" />
               </div>
               <div className="w-full md:w-48">
                 <label className="block text-xs font-bold text-slate-400 mb-1">ตำแหน่ง</label>
-                <input 
-                  type="text" 
-                  placeholder="ตำแหน่ง" 
-                  value={quickRole} 
-                  onChange={(e) => setQuickRole(e.target.value)}
-                  className="w-full border border-slate-200 rounded-lg p-2 text-sm focus:outline-none"
-                />
+                <input type="text" placeholder="ตำแหน่ง" value={quickRole} onChange={(e) => setQuickRole(e.target.value)} className="w-full border border-slate-200 rounded-lg p-2 text-sm focus:outline-none" />
               </div>
               <div className="w-full md:w-56">
                 <label className="block text-xs font-bold text-slate-400 mb-1">หน่วยงาน</label>
-                <input 
-                  type="text" 
-                  placeholder="หน่วยงานที่สังกัด" 
-                  value={quickDept} 
-                  onChange={(e) => setQuickDept(e.target.value)}
-                  className="w-full border border-slate-200 rounded-lg p-2 text-sm focus:outline-none"
-                />
+                <input type="text" placeholder="หน่วยงานที่สังกัด" value={quickDept} onChange={(e) => setQuickDept(e.target.value)} className="w-full border border-slate-200 rounded-lg p-2 text-sm focus:outline-none" />
               </div>
-              <button 
-                type="submit" 
-                className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm py-2 px-6 rounded-lg transition-colors w-full md:w-auto h-[38px] flex items-center justify-center gap-1.5"
-              >
+              <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm py-2 px-6 rounded-lg transition-colors w-full md:w-auto h-[38px] flex items-center justify-center gap-1.5">
                 <Plus size={16} /> เพิ่มรายชื่อ
               </button>
             </form>
 
+            {/* 3. กล่อง Card สรุปองค์ประชุม */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
                 <span className="text-xs font-bold text-slate-400 uppercase block">เข้าร่วม</span>
@@ -640,15 +610,16 @@ export default function App() {
               <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
                 <span className="text-xs font-bold text-slate-400 uppercase block">สถานะองค์ประชุม</span>
                 <span className={`text-base font-black mt-2 block ${activeAttendanceStats.joined >= activeAttendanceStats.quorumLimit ? 'text-emerald-600' : 'text-rose-600'}`}>
-                  {activeAttendanceStats.statusText} 
+                  {activeAttendanceStats.statusText}
                   <span className="text-xs font-normal text-slate-400 block mt-0.5">(เกณฑ์ขั้นต่ำ {activeAttendanceStats.quorumLimit} คน)</span>
                 </span>
               </div>
             </div>
 
+            {/* 4. ตารางเช็คชื่อ คอลัมน์ Dropdown ประเภท และหมายเหตุข้อความ */}
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
               <table className="w-full text-left text-sm">
-                <thead className="bg-slate-50 font-bold text-slate-500 border-b border-slate-200 text-xs">
+                <thead className="bg-slate-50 font-bold text-slate-500 border-b text-xs">
                   <tr>
                     <th className="p-3.5">ชื่อกรรมการ / หน่วยงาน</th>
                     <th className="p-3.5 w-44">ตำแหน่ง</th>
@@ -657,20 +628,16 @@ export default function App() {
                     <th className="p-3.5 w-64">หมายเหตุ</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 font-medium text-sm">
+                <tbody className="divide-y font-medium text-sm">
                   {getCommitteeMembers(meetings.find(m => m.id === activeMeetingId)?.committeeId || '').map((m) => {
                     const currentRecord = attendance[activeMeetingId]?.[m.id] || { status: 'เข้าร่วม', type: 'Onsite', note: '' };
                     
                     const updateField = (field: 'status' | 'type' | 'note', value: string) => {
                       const currentMeetingAtt = attendance[activeMeetingId] || {};
                       const oldObj = currentMeetingAtt[m.id] || { status: 'เข้าร่วม', type: 'Onsite', note: '' };
-
                       setAttendance({
                         ...attendance,
-                        [activeMeetingId]: { 
-                          ...currentMeetingAtt, 
-                          [m.id]: { ...oldObj, [field]: value } 
-                        }
+                        [activeMeetingId]: { ...currentMeetingAtt, [m.id]: { ...oldObj, [field]: value } }
                       });
                     };
 
@@ -689,18 +656,14 @@ export default function App() {
                               className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${
                                 currentRecord.status === 'เข้าร่วม' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'
                               }`}
-                            >
-                              เข้าร่วม
-                            </button>
+                            >เข้าร่วม</button>
                             <button
                               type="button"
                               onClick={() => updateField('status', 'ลา')}
                               className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${
                                 currentRecord.status === 'ลา' ? 'bg-amber-500 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'
                               }`}
-                            >
-                              ลา
-                            </button>
+                            >ลา</button>
                           </div>
                         </td>
                         <td className="p-3.5 text-center">
@@ -742,7 +705,7 @@ export default function App() {
             </div>
             <div className="text-left">
               <label className="block text-xs font-bold text-slate-400 mb-1 uppercase">เลือกรายการรอบประชุม</label>
-              <select value={activeMeetingId} onChange={(e) => setActiveMeetingId(e.target.value)} className="w-full bg-slate-50 border border-slate-200 text-sm font-semibold p-2.5 rounded-xl focus:outline-none">
+              <select value={activeMeetingId} onChange={(e) => setActiveMeetingId(e.target.value)} className="w-full bg-slate-50 border border-slate-200 text-sm font-semibold p-2.5 rounded-xl">
                 {meetings.map(m => <option key={m.id} value={m.id}>{m.name} (ครั้งที่ {m.round})</option>)}
               </select>
             </div>
