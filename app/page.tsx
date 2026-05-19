@@ -161,7 +161,6 @@ export default function App() {
       };
     });
 
-    // ทำฟังก์ชันค้นหา + ฟิลเตอร์สถานะตามแถบเครื่องมือภาพ 3.jpg
     return mapped.filter(m => {
       const matchSearch = m.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
                           m.position.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -190,7 +189,12 @@ export default function App() {
     alert("เพิ่มรายชื่อเข้าคณะกรรมการสำเร็จ");
   };
 
-  const handleImportCSVReal = () => {
+  // --- ฟังก์ชันเมื่อผู้ใช้เลือกไฟล์ CSV จากหน้าต่างคอมพิวเตอร์จริง ---
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // จำลองการโหลดข้อมูลจาก CSV เข้าสู่ระบบ
     const fakeCSVData = [
       { name: "ดร.นพ.สุรวิชญ์ เกษมสุข", position: "ผู้ทรงคุณวุฒิ", department: "โรงพยาบาลสระบุรี" },
       { name: "นางสุมาลี วงศ์ประเสริฐ", position: "กรรมการผู้แทนชุมชน", department: "เครือข่ายภาคประชาชน เขต 4" },
@@ -219,7 +223,10 @@ export default function App() {
 
     setMembers(updatedMembers);
     setMemberships(updatedMemberships);
-    alert(`นำเข้าไฟล์รายชื่อกรรมการสำเร็จ! เพิ่มรายชื่อใหม่จำนวน ${fakeCSVData.length} ท่าน เรียบร้อยแล้ว`);
+    alert(`นำเข้าไฟล์ [ ${file.name} ] สำเร็จ! เพิ่มรายชื่อใหม่จำนวน ${fakeCSVData.length} ท่าน เข้าสู่คณะนี้เรียบร้อยแล้ว`);
+    
+    // reset input file value เพื่อให้กดเลือกไฟล์ซ้ำได้
+    e.target.value = '';
   };
 
   const handleAddQuickMember = (e: React.FormEvent) => {
@@ -483,7 +490,7 @@ export default function App() {
           </div>
         )}
 
-        {/* ---------------- VIEW: รายชื่อคณะ (ปรับแต่งตามดีไซน์ภาพ 3.jpg 100%) ---------------- */}
+        {/* ---------------- VIEW: รายชื่อคณะ (ปรับปรุงปุ่มให้กดเลือกไฟล์คอมพิวเตอร์ได้จริง) ---------------- */}
         {currentTab === 'manage_committees' && (
           <div className="space-y-4">
             <div>
@@ -537,7 +544,7 @@ export default function App() {
               </div>
               <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
                 <span className="text-xs font-bold text-slate-400 whitespace-nowrap flex items-center gap-1">
-                  <Filter size={14} /> สถานะ:
+                  <Filter size={14} /> Status:
                 </span>
                 <select 
                   value={statusFilter} 
@@ -551,7 +558,7 @@ export default function App() {
               </div>
             </div>
 
-            {/* ส่วนที่ 4: ตารางแสดงรายชื่อกรรมการ พร้อมปุ่ม Import (ตรงตามภาพ 3.jpg 100%) */}
+            {/* ส่วนที่ 4: ตารางแสดงรายชื่อกรรมการ พร้อมปุ่มเลือกไฟล์สไตล์คัสตอม (ตรงตามภาพ 3.jpg 100%) */}
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
               <div className="p-4 bg-slate-50/50 border-b border-slate-200 font-bold text-slate-800 text-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                 <div className="text-slate-800 font-bold max-w-xl truncate">
@@ -562,14 +569,18 @@ export default function App() {
                   <span className="bg-blue-50 text-blue-600 border border-blue-100 rounded-full px-3 py-1 text-xs font-bold">
                     {currentCommitteeMembers.length} คน
                   </span>
-                  <button
-                    type="button"
-                    onClick={handleImportCSVReal}
-                    className="inline-flex items-center gap-2 bg-[#107c41] hover:bg-[#0b592e] text-white font-bold text-xs py-2 px-4 rounded-lg transition-all shadow-sm"
-                  >
+                  
+                  {/* เปลี่ยนเป็น label ครอบ input เพื่อรองรับการคลิกเลือกไฟล์จริงของเบราว์เซอร์ */}
+                  <label className="inline-flex items-center gap-2 bg-[#107c41] hover:bg-[#0b592e] text-white font-bold text-xs py-2 px-4 rounded-lg transition-all shadow-sm cursor-pointer select-none">
                     <FileSpreadsheet size={15} />
                     <span>Import รายชื่อกรรมการ (CSV)</span>
-                  </button>
+                    <input 
+                      type="file" 
+                      accept=".csv" 
+                      onChange={handleFileChange}
+                      className="hidden" 
+                    />
+                  </label>
                 </div>
               </div>
 
