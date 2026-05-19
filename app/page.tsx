@@ -58,7 +58,7 @@ const INITIAL_ATTENDANCE: Record<string, Record<string, { status: string; type: 
 
 export default function App() {
   // --- UI Views ---
-  const [currentTab, setCurrentTab] = useState<string>('manage_committees'); 
+  const [currentTab, setCurrentTab] = useState<string>('dashboard'); 
   
   // --- Database States ---
   const [committees, setCommittees] = useState(INITIAL_COMMITTEES);
@@ -72,7 +72,7 @@ export default function App() {
   const [selectedCommittee, setSelectedCommittee] = useState<string>('C001');
   const [activeMeetingId, setActiveMeetingId] = useState<string>('MT001');
 
-  // --- หน้ารายชื่อคณะกรรมการ States & Filters (ตามภาพ 3.jpg 100%) ---
+  // --- หน้ารายชื่อคณะกรรมการ States & Filters ---
   const [minQuorum, setMinQuorum] = useState<string>('5');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('ทั้งหมด');
@@ -146,7 +146,7 @@ export default function App() {
     URL.revokeObjectURL(url);
   };
 
-  // --- คำนวณรายชื่อและคัดกรองข้อมูลตามฟิลเตอร์การค้นหาของภาพ 3.jpg ---
+  // --- คำนวณรายชื่อและคัดกรองข้อมูลคณะกรรมการ ---
   const currentCommitteeMembers = useMemo(() => {
     const rels = memberships.filter(ms => ms.committeeId === selectedCommittee);
     const mapped = rels.map(r => {
@@ -189,12 +189,10 @@ export default function App() {
     alert("เพิ่มรายชื่อเข้าคณะกรรมการสำเร็จ");
   };
 
-  // --- ฟังก์ชันเมื่อผู้ใช้เลือกไฟล์ CSV จากหน้าต่างคอมพิวเตอร์จริง ---
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // จำลองการโหลดข้อมูลจาก CSV เข้าสู่ระบบ
     const fakeCSVData = [
       { name: "ดร.นพ.สุรวิชญ์ เกษมสุข", position: "ผู้ทรงคุณวุฒิ", department: "โรงพยาบาลสระบุรี" },
       { name: "นางสุมาลี วงศ์ประเสริฐ", position: "กรรมการผู้แทนชุมชน", department: "เครือข่ายภาคประชาชน เขต 4" },
@@ -224,8 +222,6 @@ export default function App() {
     setMembers(updatedMembers);
     setMemberships(updatedMemberships);
     alert(`นำเข้าไฟล์ [ ${file.name} ] สำเร็จ! เพิ่มรายชื่อใหม่จำนวน ${fakeCSVData.length} ท่าน เข้าสู่คณะนี้เรียบร้อยแล้ว`);
-    
-    // reset input file value เพื่อให้กดเลือกไฟล์ซ้ำได้
     e.target.value = '';
   };
 
@@ -293,10 +289,12 @@ export default function App() {
     }
   };
 
+  // --- คำนวณสถิติเพื่อนำมาจัดบอร์ดตามหน้า ภาพรวม (1.jpg) 100% ---
   const dynamicStats = useMemo(() => {
     let filtered = meetings.filter(m => m.fiscalYear === fiscalYear);
     let total = filtered.length;
     let onsite = 0, online = 0, leave = 0;
+    
     filtered.forEach(m => {
       const records = attendance[m.id] || {};
       Object.values(records).forEach(r => {
@@ -307,8 +305,13 @@ export default function App() {
         if (r.status === "ลา") leave++;
       });
     });
-    return { total, onsite, online, leave };
-  }, [meetings, attendance, fiscalYear]);
+    
+    // คำนวณสถิติสะสมภาพรวมทั้งหมดในฐานข้อมูล
+    const totalAllMembers = members.length;
+    const totalAllCommittees = committees.length;
+
+    return { total, onsite, online, leave, totalAllMembers, totalAllCommittees };
+  }, [meetings, attendance, fiscalYear, members, committees]);
 
   const activeAttendanceStats = useMemo(() => {
     const currentMeeting = meetings.find(m => m.id === activeMeetingId);
@@ -402,24 +405,47 @@ export default function App() {
           </span>
         </div>
 
-        {/* ---------------- VIEW: DASHBOARD ---------------- */}
+        {/* ---------------- VIEW: DASHBOARD (ปรับโครงสร้างตามภาพ 1.jpg 100%) ---------------- */}
         {currentTab === 'dashboard' && (
           <div className="space-y-5">
             <div>
               <h2 className="text-xl font-bold text-slate-900">ภาพรวมข้อมูลการเข้าประชุม</h2>
             </div>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              {[
-                { label: 'การประชุมทั้งหมด', val: `${dynamicStats.total} ครั้ง`, color: 'bg-blue-50 border-blue-200 text-blue-700' },
-                { label: 'มาประชุม ( Onsite )', val: `${dynamicStats.onsite} คน`, color: 'bg-emerald-50 border-emerald-200 text-emerald-700' },
-                { label: 'มาประชุม ( Online )', val: `${dynamicStats.online} คน`, color: 'bg-sky-50 border-sky-200 text-sky-700' },
-                { label: 'ลาประชุม', val: `${dynamicStats.leave} คน`, color: 'bg-amber-50 border-amber-200 text-amber-700' },
-              ].map((card, idx) => (
-                <div key={idx} className={`p-4 rounded-xl border ${card.color} shadow-sm`}>
-                  <span className="text-xs font-bold uppercase tracking-wider block opacity-70">{card.label}</span>
-                  <span className="text-2xl font-black mt-2 block">{card.val}</span>
+
+            {/* การแบ่ง Grid ซ้าย-ขวา แบบในภาพ 1.jpg */}
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-5📌">
+              
+              {/* ฝั่งซ้าย: กลุ่มการ์ดแสดงตัวเลขสถิติการประชุมหลัก (3 ส่วนย่อย) */}
+              <div className="lg:col-span-3 grid grid-cols-1 sm:grid-cols-3 gap-4 h-fit">
+                <div className="p-5 rounded-xl border bg-blue-50 border-blue-200 text-blue-700 shadow-sm">
+                  <span className="text-xs font-bold uppercase tracking-wider block opacity-75">การประชุมทั้งหมด</span>
+                  <span className="text-3xl font-black mt-3 block">{dynamicStats.total} <span className="text-sm font-medium opacity-80">ครั้ง</span></span>
                 </div>
-              ))}
+
+                <div className="p-5 rounded-xl border bg-emerald-50 border-emerald-200 text-emerald-700 shadow-sm">
+                  <span className="text-xs font-bold uppercase tracking-wider block opacity-75">มาประชุม ( Onsite )</span>
+                  <span className="text-3xl font-black mt-3 block">{dynamicStats.onsite} <span className="text-sm font-medium opacity-80">คน</span></span>
+                </div>
+
+                <div className="p-5 rounded-xl border bg-sky-50 border-sky-200 text-sky-700 shadow-sm">
+                  <span className="text-xs font-bold uppercase tracking-wider block opacity-75">มาประชุม ( Online )</span>
+                  <span className="text-3xl font-black mt-3 block">{dynamicStats.online} <span className="text-sm font-medium opacity-80">คน</span></span>
+                </div>
+              </div>
+
+              {/* ฝั่งขวา: กล่องแสดงสถิติสะสมระบบ (กล่องสีขาวขวาสุดตามภาพ 1.jpg) */}
+              <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm h-full space-y-4">
+                <div className="text-xs font-bold text-slate-400 uppercase tracking-wider border-b pb-1.5">สถิติสะสมระบบ</div>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500 font-semibold text-xs">คณะอนุกรรมการทั้งหมด:</span>
+                  <span className="text-base font-bold text-slate-800">{dynamicStats.totalAllCommittees} คณะ</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500 font-semibold text-xs">รายชื่อกรรมการรวม:</span>
+                  <span className="text-base font-bold text-slate-800">{dynamicStats.totalAllMembers} ท่าน</span>
+                </div>
+              </div>
+
             </div>
           </div>
         )}
@@ -490,7 +516,7 @@ export default function App() {
           </div>
         )}
 
-        {/* ---------------- VIEW: รายชื่อคณะ (ปรับปรุงปุ่มให้กดเลือกไฟล์คอมพิวเตอร์ได้จริง) ---------------- */}
+        {/* ---------------- VIEW: รายชื่อคณะ ---------------- */}
         {currentTab === 'manage_committees' && (
           <div className="space-y-4">
             <div>
@@ -498,7 +524,6 @@ export default function App() {
               <p className="text-slate-400 text-xs mt-0.5">จัดการสมาชิกและองค์ประชุมของแต่ละคณะ</p>
             </div>
 
-            {/* ส่วนที่ 1: แถบเลือกคณะกรรมการ และบันทึกองค์ประชุมขั้นต่ำ */}
             <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
               <div>
                 <label className="block text-xs font-bold text-slate-400 mb-1">เลือกคณะกรรมการ</label>
@@ -513,7 +538,6 @@ export default function App() {
               <button type="button" onClick={handleSaveQuorum} className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm py-2.5 px-5 rounded-lg transition-colors w-fit">บันทึกองค์ประชุม</button>
             </div>
 
-            {/* ส่วนที่ 2: ฟอร์มเพิ่มรายชื่อแบบกำหนดเอง */}
             <form onSubmit={handleAddNewMemberToCommittee} className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
               <div>
                 <label className="block text-xs font-bold text-slate-400 mb-1">ชื่อ-นามสกุล</label>
@@ -530,7 +554,6 @@ export default function App() {
               <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm py-2.5 px-5 rounded-lg transition-colors w-fit">เพิ่มเข้าคณะ</button>
             </form>
 
-            {/* ส่วนที่ 3: แถบเครื่องมือ ค้นหา และ คัดกรองสถานะ (ตรงตามภาพ 3.jpg 100%) */}
             <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row gap-3 items-center justify-between">
               <div className="relative w-full sm:w-80">
                 <Search size={16} className="absolute left-3 top-3 text-slate-400" />
@@ -558,28 +581,15 @@ export default function App() {
               </div>
             </div>
 
-            {/* ส่วนที่ 4: ตารางแสดงรายชื่อกรรมการ พร้อมปุ่มเลือกไฟล์สไตล์คัสตอม (ตรงตามภาพ 3.jpg 100%) */}
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
               <div className="p-4 bg-slate-50/50 border-b border-slate-200 font-bold text-slate-800 text-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-                <div className="text-slate-800 font-bold max-w-xl truncate">
-                  {currentCommitteeInfo?.name || 'คณะกรรมการ'}
-                </div>
-                
+                <div className="text-slate-800 font-bold max-w-xl truncate">{currentCommitteeInfo?.name || 'คณะกรรมการ'}</div>
                 <div className="flex items-center gap-3 shrink-0 ml-auto sm:ml-0">
-                  <span className="bg-blue-50 text-blue-600 border border-blue-100 rounded-full px-3 py-1 text-xs font-bold">
-                    {currentCommitteeMembers.length} คน
-                  </span>
-                  
-                  {/* เปลี่ยนเป็น label ครอบ input เพื่อรองรับการคลิกเลือกไฟล์จริงของเบราว์เซอร์ */}
+                  <span className="bg-blue-50 text-blue-600 border border-blue-100 rounded-full px-3 py-1 text-xs font-bold">{currentCommitteeMembers.length} คน</span>
                   <label className="inline-flex items-center gap-2 bg-[#107c41] hover:bg-[#0b592e] text-white font-bold text-xs py-2 px-4 rounded-lg transition-all shadow-sm cursor-pointer select-none">
                     <FileSpreadsheet size={15} />
                     <span>Import รายชื่อกรรมการ (CSV)</span>
-                    <input 
-                      type="file" 
-                      accept=".csv" 
-                      onChange={handleFileChange}
-                      className="hidden" 
-                    />
+                    <input type="file" accept=".csv" onChange={handleFileChange} className="hidden" />
                   </label>
                 </div>
               </div>
@@ -602,21 +612,13 @@ export default function App() {
                           <td className="p-3.5 text-amber-600 font-semibold">{m.position}</td>
                           <td className="p-3.5 text-slate-500">{m.department}</td>
                           <td className="p-3.5 text-center">
-                            <button 
-                              type="button" 
-                              onClick={() => handleRemoveMemberFromCommittee(m.membershipId)} 
-                              className="border border-slate-200 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 text-xs font-bold py-1.5 px-3 rounded-lg transition-all text-slate-600"
-                            >
-                              ลบออกจากคณะ
-                            </button>
+                            <button type="button" onClick={() => handleRemoveMemberFromCommittee(m.membershipId)} className="border border-slate-200 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 text-xs font-bold py-1.5 px-3 rounded-lg transition-all text-slate-600">ลบออกจากคณะ</button>
                           </td>
                         </tr>
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={4} className="p-8 text-center text-slate-400 font-medium bg-slate-50/20">
-                          ไม่พบข้อมูลรายชื่อคณะกรรมการที่ค้นหา
-                        </td>
+                        <td colSpan={4} className="p-8 text-center text-slate-400 font-medium bg-slate-50/20">ไม่พบข้อมูลรายชื่อคณะกรรมการที่ค้นหา</td>
                       </tr>
                     )}
                   </tbody>
@@ -626,16 +628,12 @@ export default function App() {
           </div>
         )}
 
-        {/* ---------------- VIEW: ATTENDANCE SYSTEM (คงไว้ถอดตามภาพ 4.jpg 100%) ---------------- */}
+        {/* ---------------- VIEW: ATTENDANCE SYSTEM ---------------- */}
         {currentTab === 'check_attendance' && (
           <div className="space-y-5">
             <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-1">
               <label className="text-xs font-bold text-slate-400 uppercase">เลือกการประชุม</label>
-              <select 
-                value={activeMeetingId} 
-                onChange={(e) => setActiveMeetingId(e.target.value)} 
-                className="w-full bg-slate-50 border border-slate-200 text-sm font-bold text-slate-700 p-2.5 rounded-xl focus:outline-none"
-              >
+              <select value={activeMeetingId} onChange={(e) => setActiveMeetingId(e.target.value)} className="w-full bg-slate-50 border border-slate-200 text-sm font-bold text-slate-700 p-2.5 rounded-xl focus:outline-none">
                 {meetings.map(m => <option key={m.id} value={m.id}>{m.name} (ครั้งที่ {m.round})</option>)}
               </select>
             </div>
@@ -653,9 +651,7 @@ export default function App() {
                 <label className="block text-xs font-bold text-slate-400 mb-1">หน่วยงาน</label>
                 <input type="text" placeholder="หน่วยงานที่สังกัด" value={quickDept} onChange={(e) => setQuickDept(e.target.value)} className="w-full border border-slate-200 rounded-lg p-2 text-sm focus:outline-none" />
               </div>
-              <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm py-2 px-6 rounded-lg transition-colors w-full md:w-auto h-[38px] flex items-center justify-center gap-1.5">
-                <Plus size={16} /> เพิ่มรายชื่อ
-              </button>
+              <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm py-2 px-6 rounded-lg transition-colors w-full md:w-auto h-[38px] flex items-center justify-center gap-1.5"><Plus size={16} /> เพิ่มรายชื่อ</button>
             </form>
 
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -676,10 +672,7 @@ export default function App() {
               </div>
               <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
                 <span className="text-xs font-bold text-slate-400 uppercase block">สถานะองค์ประชุม</span>
-                <span className={`text-base font-black mt-2 block ${activeAttendanceStats.joined >= activeAttendanceStats.quorumLimit ? 'text-emerald-600' : 'text-rose-600'}`}>
-                  {activeAttendanceStats.statusText}
-                  <span className="text-xs font-normal text-slate-400 block mt-0.5">(เกณฑ์ขั้นต่ำ {activeAttendanceStats.quorumLimit} คน)</span>
-                </span>
+                <span className={`text-base font-black mt-2 block ${activeAttendanceStats.joined >= activeAttendanceStats.quorumLimit ? 'text-emerald-600' : 'text-rose-600'}`}>{activeAttendanceStats.statusText}<span className="text-xs font-normal text-slate-400 block mt-0.5">(เกณฑ์ขั้นต่ำ {activeAttendanceStats.quorumLimit} คน)</span></span>
               </div>
             </div>
 
@@ -697,14 +690,10 @@ export default function App() {
                 <tbody className="divide-y font-medium text-sm">
                   {getCommitteeMembers(meetings.find(m => m.id === activeMeetingId)?.committeeId || '').map((m) => {
                     const currentRecord = attendance[activeMeetingId]?.[m.id] || { status: 'เข้าร่วม', type: 'Onsite', note: '' };
-                    
                     const updateField = (field: 'status' | 'type' | 'note', value: string) => {
                       const currentMeetingAtt = attendance[activeMeetingId] || {};
                       const oldObj = currentMeetingAtt[m.id] || { status: 'เข้าร่วม', type: 'Onsite', note: '' };
-                      setAttendance({
-                        ...attendance,
-                        [activeMeetingId]: { ...currentMeetingAtt, [m.id]: { ...oldObj, [field]: value } }
-                      });
+                      setAttendance({ ...attendance, [activeMeetingId]: { ...currentMeetingAtt, [m.id]: { ...oldObj, [field]: value } } });
                     };
 
                     return (
@@ -716,41 +705,18 @@ export default function App() {
                         <td className="p-3.5 text-slate-600 font-semibold text-xs">{m.role || 'กรรมการ'}</td>
                         <td className="p-3.5 text-center">
                           <div className="inline-flex rounded-lg border border-slate-200 p-0.5 bg-slate-50 gap-0.5">
-                            <button
-                              type="button"
-                              onClick={() => updateField('status', 'เข้าร่วม')}
-                              className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${
-                                currentRecord.status === 'เข้าร่วม' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'
-                              }`}
-                            >เข้าร่วม</button>
-                            <button
-                              type="button"
-                              onClick={() => updateField('status', 'ลา')}
-                              className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${
-                                currentRecord.status === 'ลา' ? 'bg-amber-500 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'
-                              }`}
-                            >ลา</button>
+                            <button type="button" onClick={() => updateField('status', 'เข้าร่วม')} className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${currentRecord.status === 'เข้าร่วม' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>เข้าร่วม</button>
+                            <button type="button" onClick={() => updateField('status', 'ลา')} className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${currentRecord.status === 'ลา' ? 'bg-amber-500 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>ลา</button>
                           </div>
                         </td>
                         <td className="p-3.5 text-center">
-                          <select
-                            value={currentRecord.type}
-                            onChange={(e) => updateField('type', e.target.value)}
-                            disabled={currentRecord.status === 'ลา'}
-                            className="bg-white border border-slate-200 rounded-lg p-1.5 text-xs font-bold text-slate-700 w-28 text-center focus:outline-none disabled:opacity-50"
-                          >
+                          <select value={currentRecord.type} onChange={(e) => updateField('type', e.target.value)} disabled={currentRecord.status === 'ลา'} className="bg-white border border-slate-200 rounded-lg p-1.5 text-xs font-bold text-slate-700 w-28 text-center focus:outline-none disabled:opacity-50">
                             <option value="Onsite">Onsite</option>
                             <option value="Online">Online</option>
                           </select>
                         </td>
                         <td className="p-3.5">
-                          <input 
-                            type="text"
-                            placeholder="พิมพ์ข้อความบันทึก / ลาเพราะ..."
-                            value={currentRecord.note || ''}
-                            onChange={(e) => updateField('note', e.target.value)}
-                            className="w-full bg-slate-50 border border-slate-200 rounded-lg p-1.5 text-xs font-medium focus:bg-white focus:outline-none"
-                          />
+                          <input type="text" placeholder="พิมพ์ข้อความบันทึก / ลาเพราะ..." value={currentRecord.note || ''} onChange={(e) => updateField('note', e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-lg p-1.5 text-xs font-medium focus:bg-white focus:outline-none" />
                         </td>
                       </tr>
                     );
@@ -775,12 +741,7 @@ export default function App() {
                 {meetings.map(m => <option key={m.id} value={m.id}>{m.name} (ครั้งที่ {m.round})</option>)}
               </select>
             </div>
-            <button 
-              onClick={() => handleDownloadWord(activeMeetingId)} 
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm py-2.5 rounded-xl transition-all shadow-sm flex items-center justify-center gap-2"
-            >
-              <Download size={16} /> ดาวน์โหลดรายงาน Microsoft Word (.doc)
-            </button>
+            <button onClick={() => handleDownloadWord(activeMeetingId)} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm py-2.5 rounded-xl transition-all shadow-sm flex items-center justify-center gap-2"><Download size={16} /> ดาวน์โหลดรายงาน Microsoft Word (.doc)</button>
           </div>
         )}
 
