@@ -729,23 +729,86 @@ export default function App() {
 
         {/* ---------------- VIEW: PRINT REPORT ---------------- */}
         {currentTab === 'generate_report' && (
-          <div className="max-w-md mx-auto bg-white p-6 rounded-2xl border border-slate-200 shadow-sm text-center space-y-4 my-8">
-            <FileSpreadsheet size={44} className="text-blue-600 mx-auto bg-blue-50 p-2.5 rounded-xl" />
-            <div>
-              <h3 className="font-bold text-slate-800 text-sm">เครื่องมือส่งออกประวัติรายงานเข้าประชุม</h3>
-              <p className="text-xs text-slate-400 mt-1">ดาวน์โหลดเอกสารสรุปผลอิงตามสถานะที่บันทึกจริงในเมนูเช็คชื่อ</p>
-            </div>
-            <div className="text-left">
-              <label className="block text-xs font-bold text-slate-400 mb-1 uppercase">เลือกรายการรอบประชุม</label>
-              <select value={activeMeetingId} onChange={(e) => setActiveMeetingId(e.target.value)} className="w-full bg-slate-50 border border-slate-200 text-sm font-semibold p-2.5 rounded-xl">
-                {meetings.map(m => <option key={m.id} value={m.id}>{m.name} (ครั้งที่ {m.round})</option>)}
-              </select>
-            </div>
-            <button onClick={() => handleDownloadWord(activeMeetingId)} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm py-2.5 rounded-xl transition-all shadow-sm flex items-center justify-center gap-2"><Download size={16} /> ดาวน์โหลดรายงาน Microsoft Word (.doc)</button>
-          </div>
-        )}
-
+  <div className="space-y-6">
+    {/* ส่วนเลือกการประชุมและปุ่มดาวน์โหลด */}
+    <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row gap-4 items-center">
+      <div className="flex-1 w-full">
+        <label className="block text-xs font-bold text-slate-400 mb-1">เลือกการประชุม</label>
+        <select 
+          value={activeMeetingId} 
+          onChange={(e) => setActiveMeetingId(e.target.value)}
+          className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm font-semibold text-slate-700"
+        >
+          {meetings.map(m => (
+            <option key={m.id} value={m.id}>{m.name} ครั้งที่ {m.round}</option>
+          ))}
+        </select>
+      </div>
+      <div className="flex items-center gap-2 pt-5">
+        <button 
+          onClick={() => handleDownloadWord(activeMeetingId)}
+          className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm py-2.5 px-6 rounded-lg transition-all shadow-sm flex items-center gap-2"
+        >
+          <Download size={16} /> ดาวน์โหลด Microsoft Word
+        </button>
       </div>
     </div>
-  );
-}
+
+    {/* ส่วนแสดงรายงานผล */}
+    <div className="bg-white p-8 rounded-xl border border-slate-200 shadow-sm">
+      <h2 className="text-xl font-bold text-slate-900 text-center mb-8">รายงานผลการเช็คชื่อเข้าร่วมประชุม</h2>
+      
+      {/* ข้อมูลทั่วไป */}
+      <div className="grid grid-cols-2 gap-y-3 text-sm mb-8">
+        <div className="text-slate-500 font-bold">ชื่อการประชุม</div> <div>{meetings.find(m => m.id === activeMeetingId)?.name}</div>
+        <div className="text-slate-500 font-bold">ครั้งที่</div> <div>{meetings.find(m => m.id === activeMeetingId)?.round}</div>
+        <div className="text-slate-500 font-bold">คณะกรรมการ</div> <div>{committees.find(c => c.id === meetings.find(m => m.id === activeMeetingId)?.committeeId)?.name}</div>
+        <div className="text-slate-500 font-bold">วันที่ประชุม</div> <div>{meetings.find(m => m.id === activeMeetingId)?.date}</div>
+        <div className="text-slate-500 font-bold">สถานที่</div> <div>{meetings.find(m => m.id === activeMeetingId)?.place}</div>
+      </div>
+
+      <hr className="my-6 border-slate-100" />
+
+      {/* สรุปผล */}
+      <div className="mb-8">
+        <h3 className="font-bold text-slate-800 mb-4">สรุปผล</h3>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+          <div><p className="text-slate-400">กรรมการและผู้เข้าร่วม</p><p className="font-bold">{getCommitteeMembers(meetings.find(m => m.id === activeMeetingId)?.committeeId || '').length} คน</p></div>
+          <div><p className="text-slate-400">เข้าร่วมประชุม</p><p className="font-bold text-emerald-600">{activeAttendanceStats.joined} คน</p></div>
+          <div><p className="text-slate-400">Online</p><p className="font-bold">{activeAttendanceStats.online} คน</p></div>
+          <div><p className="text-slate-400">OnSite</p><p className="font-bold">{activeAttendanceStats.onsite} คน</p></div>
+          <div><p className="text-slate-400">ลา</p><p className="font-bold text-amber-600">{activeAttendanceStats.leave} คน</p></div>
+          <div><p className="text-slate-400">องค์ประชุมขั้นต่ำ</p><p className="font-bold">{activeAttendanceStats.quorumLimit} คน</p></div>
+          <div><p className="text-slate-400">ผลการประชุม</p><p className={`font-bold ${activeAttendanceStats.statusText === 'ครบองค์ประชุม' ? 'text-blue-600' : 'text-rose-600'}`}>{activeAttendanceStats.statusText}</p></div>
+        </div>
+      </div>
+
+      {/* ตารางรายชื่อ */}
+      <div className="space-y-6">
+        <div>
+          <h3 className="font-bold text-slate-800 mb-3 border-b pb-2">รายชื่อผู้เข้าร่วมประชุม</h3>
+          {getCommitteeMembers(meetings.find(m => m.id === activeMeetingId)?.committeeId || '').filter(m => attendance[activeMeetingId]?.[m.id]?.status === 'เข้าร่วม').map((m, idx) => (
+            <div key={m.id} className="grid grid-cols-4 gap-4 py-2 text-sm border-b border-slate-50">
+              <div>{idx + 1}. {m.name}</div>
+              <div>ตำแหน่ง {m.role}</div>
+              <div>หน่วยงาน {m.department}</div>
+              <div className="font-bold text-slate-500">ประชุม {attendance[activeMeetingId]?.[m.id]?.type}</div>
+            </div>
+          ))}
+        </div>
+
+        <div>
+          <h3 className="font-bold text-slate-800 mb-3 border-b pb-2">รายชื่อผู้ลาประชุม</h3>
+          {getCommitteeMembers(meetings.find(m => m.id === activeMeetingId)?.committeeId || '').filter(m => attendance[activeMeetingId]?.[m.id]?.status === 'ลา').map((m, idx) => (
+            <div key={m.id} className="grid grid-cols-4 gap-4 py-2 text-sm border-b border-slate-50">
+              <div>{idx + 1}. {m.name}</div>
+              <div>ตำแหน่ง {m.role}</div>
+              <div>หน่วยงาน {m.department}</div>
+              <div className="font-bold text-rose-500">เหตุผล: {attendance[activeMeetingId]?.[m.id]?.note || '-'}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  </div>
+)}
