@@ -459,72 +459,49 @@ export default function App() {
   </div>
 )}
         {/* ---------------- VIEW: MANAGE MEETINGS ---------------- */}
-        {currentTab === 'manage_meetings' && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm h-fit space-y-4">
-              <div className="font-bold text-sm text-slate-500 border-b pb-2 flex items-center gap-1.5">
-                <Plus size={16} className="text-blue-600" /> {editingMeetingId ? 'แก้ไขข้อมูลการประชุม' : 'นัดหมายเพิ่มรอบใหม่'}
-              </div>
-              <form onSubmit={handleCreateOrUpdateMeeting} className="space-y-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 mb-1">ชื่อรายการประชุมคณะกรรมการ</label>
-                  <input type="text" required placeholder="เช่น ประชุมคณะอนุกรรมการฯ" value={formMeetingName} onChange={(e) => setFormMeetingName(e.target.value)} className="w-full border border-slate-200 text-sm rounded-xl p-2.5 focus:outline-none focus:border-blue-500" />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 mb-1">เลือกสังกัดชุดคณะอนุกรรมการ</label>
-                  <select value={formCommId} onChange={(e) => setFormCommId(e.target.value)} className="w-full bg-slate-50 border border-slate-200 text-sm rounded-xl p-2.5">
-                    {committees.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 mb-1">ครั้งที่จัด</label>
-                  <input type="text" required placeholder="เช่น 1/2569" value={formRound} onChange={(e) => setFormRound(e.target.value)} className="w-full border border-slate-200 text-sm rounded-xl p-2.5 focus:outline-none focus:border-blue-500" />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 mb-1">วันที่ประชุม</label>
-                  <input type="date" required value={formDate} onChange={(e) => setFormDate(e.target.value)} className="w-full border border-slate-200 text-sm rounded-xl p-2.5" />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 mb-1">สถานที่จัดประชุม</label>
-                  <input type="text" placeholder="ระบุห้องประชุม สปสช." value={formPlace} onChange={(e) => setFormPlace(e.target.value)} className="w-full border border-slate-200 text-sm rounded-xl p-2.5" />
-                </div>
-                <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm py-2.5 rounded-xl transition-all">
-                  {editingMeetingId ? 'บันทึกการแก้ไข' : 'สร้างกำหนดการประชุม'}
-                </button>
-              </form>
-            </div>
+       {currentTab === 'dashboard' && (
+  <div className="space-y-6 animate-in fade-in duration-500">
+    <div>
+      <h2 className="text-xl font-bold text-slate-800">ภาพรวมระบบ (Dashboard)</h2>
+      <p className="text-sm text-slate-500">สรุปข้อมูลภาพรวมการดำเนินงานทั้งหมด</p>
+    </div>
 
-            <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm p-5 overflow-hidden">
-              <div className="font-bold text-sm text-slate-800 pb-3 border-b">รายการนัดหมายการประชุมในระบบ</div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm mt-2">
-                  <thead className="bg-slate-50 text-slate-400 font-bold">
-                    <tr>
-                      <th className="p-3">ชื่อการประชุม / ครั้งที่</th>
-                      <th className="p-3">วันที่จัด</th>
-                      <th className="p-3 text-center w-32">จัดการ</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y font-medium text-slate-700">
-                    {meetings.map((m) => (
-                      <tr key={m.id} className="hover:bg-slate-50/50">
-                        <td className="p-3">
-                          <div className="font-bold text-slate-900 text-sm">{m.name}</div>
-                          <div className="text-xs text-blue-500 font-bold mt-1">ครั้งที่: {m.round}</div>
-                        </td>
-                        <td className="p-3 text-slate-500">{m.date}</td>
-                        <td className="p-3 text-center flex justify-center gap-2 pt-4">
-                          <button onClick={() => handleEditClick(m)} className="p-2 border rounded-lg text-amber-600 hover:bg-amber-50"><Edit size={14} /></button>
-                          <button onClick={() => handleDeleteMeeting(m.id)} className="p-2 border rounded-lg text-rose-600 hover:bg-rose-50"><Trash2 size={14} /></button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+    <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+      {/* ฝั่งซ้าย: 3 การ์ดสถิติ (3 Columns) */}
+      <div className="lg:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-[0_2px_10px_-3px_rgba(0,0,0,0.07)]">
+          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">การประชุมทั้งหมด</span>
+          <div className="mt-3 text-4xl font-black text-slate-900 tracking-tight">{dynamicStats.total} <span className="text-sm font-medium text-slate-400 ml-1">ครั้ง</span></div>
+        </div>
+
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-[0_2px_10px_-3px_rgba(0,0,0,0.07)]">
+          <span className="text-[11px] font-bold text-emerald-600 uppercase tracking-widest">มาประชุม (Onsite)</span>
+          <div className="mt-3 text-4xl font-black text-emerald-700 tracking-tight">{dynamicStats.onsite} <span className="text-sm font-medium text-slate-400 ml-1">คน</span></div>
+        </div>
+
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-[0_2px_10px_-3px_rgba(0,0,0,0.07)]">
+          <span className="text-[11px] font-bold text-sky-600 uppercase tracking-widest">มาประชุม (Online)</span>
+          <div className="mt-3 text-4xl font-black text-sky-700 tracking-tight">{dynamicStats.online} <span className="text-sm font-medium text-slate-400 ml-1">คน</span></div>
+        </div>
+      </div>
+
+      {/* ฝั่งขวา: กล่องข้อมูลสะสมระบบ */}
+      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-[0_2px_10px_-3px_rgba(0,0,0,0.07)] flex flex-col">
+        <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-3">ข้อมูลสะสมระบบ</div>
+        <div className="space-y-4 mt-5 flex-1">
+          <div className="flex justify-between items-center">
+            <span className="text-sm font-semibold text-slate-600">คณะทั้งหมด:</span>
+            <span className="text-sm font-bold text-slate-900 bg-slate-100 px-3 py-1 rounded-lg">{dynamicStats.totalAllCommittees} คณะ</span>
           </div>
-        )}
+          <div className="flex justify-between items-center">
+            <span className="text-sm font-semibold text-slate-600">รายชื่อกรรมการ:</span>
+            <span className="text-sm font-bold text-slate-900 bg-slate-100 px-3 py-1 rounded-lg">{dynamicStats.totalAllMembers} ท่าน</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
 
         {/* ---------------- VIEW: รายชื่อคณะ ---------------- */}
         {currentTab === 'manage_committees' && (
