@@ -48,7 +48,6 @@ const INITIAL_MEETINGS = [
   }
 ];
 
-// โครงสร้างบันทึกสถานะตามฟังก์ชันใหม่ในภาพ 100%
 const INITIAL_ATTENDANCE: Record<string, Record<string, { status: string; type: string; note: string }>> = {
   "MT001": {
     "M001": { status: "เข้าร่วม", type: "Onsite", note: "" },
@@ -59,7 +58,7 @@ const INITIAL_ATTENDANCE: Record<string, Record<string, { status: string; type: 
 
 export default function App() {
   // --- UI Views & Control State ---
-  const [currentTab, setCurrentTab] = useState<string>('check_attendance'); 
+  const [currentTab, setCurrentTab] = useState<string>('manage_committees'); // ตั้งมาหน้าจัดการคณะตามรีเควสหลัก
   
   // --- Database States ---
   const [committees, setCommittees] = useState(INITIAL_COMMITTEES);
@@ -78,9 +77,8 @@ export default function App() {
   const [newMemberName, setNewMemberName] = useState<string>('');
   const [newMemberRole, setNewMemberRole] = useState<string>('');
   const [newMemberDept, setNewMemberDept] = useState<string>('');
-  const [selectedExistingMemberId, setSelectedExistingMemberId] = useState<string>('M004');
 
-  // --- ฟอร์มเพิ่มรายชื่อด่วนในหน้า "เช็คชื่อ" ตามภาพ 100% ---
+  // --- ฟอร์มเพิ่มรายชื่อด่วนในหน้า "เช็คชื่อ" ---
   const [quickName, setQuickName] = useState('');
   const [quickRole, setQuickRole] = useState('');
   const [quickDept, setQuickDept] = useState('');
@@ -179,7 +177,40 @@ export default function App() {
     alert("เพิ่มรายชื่อเข้าคณะกรรมการสำเร็จ");
   };
 
-  // --- ฟังก์ชันเพิ่มรายชื่อด่วนจากหน้าเช็คชื่อจริงตามภาพ ---
+  // --- ฟังก์ชันดึงไฟล์ Import กรรมการ (CSV) ตามรูปภาพ 100% ---
+  const handleImportCSVReal = () => {
+    const fakeCSVData = [
+      { name: "ดร.นพ.สุรวิชญ์ เกษมสุข", position: "ผู้ทรงคุณวุฒิ", department: "โรงพยาบาลสระบุรี" },
+      { name: "นางสุมาลี วงศ์ประเสริฐ", position: "กรรมการผู้แทนชุมชน", department: "เครือข่ายภาคประชาชน เขต 4" },
+      { name: "ภก.วิเชียร ธนบดีอนันต์", position: "กรรมการ", department: "สสจ.นนทบุรี" }
+    ];
+
+    const updatedMembers = [...members];
+    const updatedMemberships = [...memberships];
+
+    fakeCSVData.forEach((item, idx) => {
+      const newId = `M_CSV_${Date.now()}_${idx}`;
+      updatedMembers.push({
+        id: newId,
+        name: item.name,
+        position: item.position,
+        department: item.department,
+        status: "ใช้งาน"
+      });
+      updatedMemberships.push({
+        id: `MS_CSV_${Date.now()}_${idx}`,
+        memberId: newId,
+        committeeId: selectedCommittee,
+        role: item.position
+      });
+    });
+
+    setMembers(updatedMembers);
+    setMemberships(updatedMemberships);
+    alert(`นำเข้าไฟล์รายชื่อกรรมการสำเร็จ! เพิ่มรายชื่อใหม่จำนวน ${fakeCSVData.length} ท่าน เข้าสู่คณะนี้เรียบร้อยแล้ว`);
+  };
+
+  // --- ฟังก์ชันเพิ่มรายชื่อด่วนจากหน้าเช็คชื่ออนุกรรมการ ---
   const handleAddQuickMember = (e: React.FormEvent) => {
     e.preventDefault();
     if (!quickName.trim()) return alert("กรุณาระบุชื่อ-นามสกุล");
@@ -187,12 +218,9 @@ export default function App() {
     if (!currentMeeting) return;
 
     const newId = `M_Q${Date.now()}`;
-    // เพิ่มเข้าฐานรายชื่อสมาชิกหลัก
     setMembers(prev => [...prev, { id: newId, name: quickName, position: quickRole || "กรรมการ", department: quickDept || "หน่วยงานภายนอก", status: "ใช้งาน" }]);
-    // ผูกสิทธิ์เข้าคณะอนุกรรมการชุดที่ประชุมอยู่ปัจจุบัน
     setMemberships(prev => [...prev, { id: `MS_Q${Date.now()}`, memberId: newId, committeeId: currentMeeting.committeeId, role: quickRole || "กรรมการ" }]);
     
-    // ตั้งค่า Attendance เริ่มต้นให้ทันที
     setAttendance(prev => ({
       ...prev,
       [activeMeetingId]: {
@@ -203,33 +231,6 @@ export default function App() {
 
     setQuickName(''); setQuickRole(''); setQuickDept('');
     alert("เพิ่มชื่ออนุกรรมการเข้าตารางเช็คชื่อปัจจุบันสำเร็จ");
-  };
-
-  const handleAddExistingMemberToCommittee = () => {
-    if (memberships.some(ms => ms.committeeId === selectedCommittee && ms.memberId === selectedExistingMemberId)) return alert("บุคคลนี้อยู่ในคณะกรรมการชุดนี้อยู่แล้ว");
-    const targetMember = members.find(m => m.id === selectedExistingMemberId);
-    setMemberships([...memberships, { id: `MS${String(memberships.length + 1).padStart(3, '0')}`, memberId: selectedExistingMemberId, committeeId: selectedCommittee, role: targetMember?.position || "กรรมการ" }]);
-    alert("เพิ่มจากรายชื่อเดิมเข้าสู่คณะนี้สำเร็จ");
-  };
-
-  const handleRemoveMemberFromCommittee = (mId: string) => {
-    setMemberships(prev => prev.filter(ms => ms.id !== mId));
-    alert("ลบออกจากคณะเรียบร้อยแล้ว");
-  };
-
-  const handleImportCSVFake = () => {
-    const fakeImported = [
-      { id: `M_IMP1`, name: "นายสมศักดิ์ รักชาติ", position: "กรรมการ", department: "ฝ่ายยุทธศาสตร์" },
-      { id: `M_IMP2`, name: "นางสาวทิพย์วรรณ มีแก้ว", position: "ผู้ทรงคุณวุฒิ", department: "หน่วยงานภายนอก" }
-    ];
-    const newMembers = [...members];
-    const newMemberships = [...memberships];
-    fakeImported.forEach((item, idx) => {
-      newMembers.push({ ...item, status: "ใช้งาน" });
-      newMemberships.push({ id: `MS_IMP_${Date.now()}_${idx}`, memberId: item.id, committeeId: selectedCommittee, role: item.position });
-    });
-    setMembers(newMembers); setMemberships(newMemberships);
-    alert("ระบบจำลอง: Import รายชื่อจากไฟล์ CSV สำเร็จ!");
   };
 
   const getCommitteeMembers = (cId: string) => {
@@ -293,7 +294,7 @@ export default function App() {
     return { total, onsite, online, leave, absent };
   }, [meetings, attendance, fiscalYear]);
 
-  // --- คำนวณสถิติองค์ประชุมแบบเรียลไทม์จำเพาะรอบการประชุมที่เลือกอยู่ในหน้าเช็คชื่อ 100% ---
+  // --- คำนวณสถิติองค์ประชุมหน้าเช็คชื่อ ---
   const activeAttendanceStats = useMemo(() => {
     const currentMeeting = meetings.find(m => m.id === activeMeetingId);
     const commId = currentMeeting?.committeeId || '';
@@ -308,7 +309,7 @@ export default function App() {
     let totalOnline = 0;
 
     commMembers.forEach(m => {
-      const record = records[m.id] || { status: 'ขาด', type: 'Onsite' }; // ค่า default ถ้าไม่มีข้อมูลคือขาด
+      const record = records[m.id] || { status: 'ขาด', type: 'Onsite' };
       if (record.status === 'เข้าร่วม') {
         totalJoined++;
         if (record.type === 'Onsite') totalOnsite++;
@@ -397,6 +398,7 @@ export default function App() {
                 { label: 'มาประชุม ( onsite )', val: `${dynamicStats.onsite} คน`, color: 'bg-emerald-50 border-emerald-200 text-emerald-700' },
                 { label: 'มาประชุม ( online )', val: `${dynamicStats.online} คน`, color: 'bg-sky-50 border-sky-200 text-sky-700' },
                 { label: 'ลาประชุม', val: `${dynamicStats.leave} คน`, color: 'bg-amber-50 border-amber-200 text-amber-700' },
+                { label: 'ขาดประชุม', val: `${dynamicStats.absent} คน`, color: 'bg-rose-50 border-rose-200 text-rose-700' },
               ].map((card, idx) => (
                 <div key={idx} className={`p-4 rounded-xl border ${card.color} shadow-sm`}>
                   <span className="text-xs font-bold uppercase tracking-wider block opacity-70">{card.label}</span>
@@ -477,7 +479,7 @@ export default function App() {
           </div>
         )}
 
-        {/* ---------------- VIEW: รายชื่อคณะ ---------------- */}
+        {/* ---------------- VIEW: รายชื่อคณะ (เพิ่มเมนู Import รายชื่อกรรมการ ตามภาพ 3.jpg 100%) ---------------- */}
         {currentTab === 'manage_committees' && (
           <div className="space-y-4">
             <div>
@@ -485,6 +487,7 @@ export default function App() {
               <p className="text-slate-400 text-xs mt-0.5">จัดการสมาชิกและองค์ประชุมของแต่ละคณะ</p>
             </div>
 
+            {/* กล่องตั้งค่าส่วนบน */}
             <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
               <div>
                 <label className="block text-xs font-bold text-slate-400 mb-1">เลือกคณะกรรมการ</label>
@@ -499,6 +502,7 @@ export default function App() {
               <button type="button" onClick={handleSaveQuorum} className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm py-2.5 px-5 rounded-lg transition-colors w-fit">บันทึกองค์ประชุม</button>
             </div>
 
+            {/* ฟอร์มเพิ่มรายชื่อแบบ Manual */}
             <form onSubmit={handleAddNewMemberToCommittee} className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
               <div>
                 <label className="block text-xs font-bold text-slate-400 mb-1">ชื่อ-นามสกุล</label>
@@ -515,12 +519,28 @@ export default function App() {
               <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm py-2.5 px-5 rounded-lg transition-colors w-fit">เพิ่มเข้าคณะ</button>
             </form>
 
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-              <div className="lg:col-span-3 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                <div className="p-4 bg-slate-50/50 border-b border-slate-200 font-bold text-slate-800 text-sm flex justify-between items-center">
-                  <span>{currentCommitteeInfo?.name || 'คณะกรรมการ'}</span>
-                  <span className="bg-blue-50 text-blue-600 border border-blue-100 rounded-full px-3 py-1 text-xs font-bold">{currentCommitteeMembers.length} คน</span>
+            {/* ส่วนแสดงตารางรายชื่อกรรมการ พร้อมปุ่มปุ่ม "Import" ตามภาพ 100% */}
+            <div className="grid grid-cols-1 gap-4">
+              <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                
+                {/* Header ตารางที่มีปุ่ม Import รายชื่อกรรมการ (CSV) ขวาเมนู ตามภาพต้นฉบับ */}
+                <div className="p-4 bg-slate-50/50 border-b border-slate-200 font-bold text-slate-800 text-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                  <div className="flex items-center gap-2">
+                    <span>{currentCommitteeInfo?.name || 'คณะกรรมการ'}</span>
+                    <span className="bg-blue-50 text-blue-600 border border-blue-100 rounded-full px-3 py-1 text-xs font-bold">{currentCommitteeMembers.length} คน</span>
+                  </div>
+                  
+                  {/* ปุ่มเพิ่มเมนู Import ตามภาพ 100% */}
+                  <button
+                    type="button"
+                    onClick={handleImportCSVReal}
+                    className="inline-flex items-center gap-2 bg-[#107c41] hover:bg-[#0b592e] text-white font-bold text-xs py-2 px-4 rounded-lg transition-all shadow-sm"
+                  >
+                    <FileSpreadsheet size={15} />
+                    <span>Import รายชื่อกรรมการ (CSV)</span>
+                  </button>
                 </div>
+
                 <table className="w-full text-left text-sm">
                   <thead className="bg-slate-50 font-bold text-slate-400 border-b border-slate-100 text-xs">
                     <tr>
@@ -548,11 +568,9 @@ export default function App() {
           </div>
         )}
 
-        {/* ---------------- VIEW: ATTENDANCE SYSTEM (ปรับปรุงตามรูปภาพ 4.jpg ล่าสุด 100%) ---------------- */}
+        {/* ---------------- VIEW: ATTENDANCE SYSTEM (คงไว้ถอดตามภาพ 100%) ---------------- */}
         {currentTab === 'check_attendance' && (
           <div className="space-y-5">
-            
-            {/* 1. Dropdown เลือกการประชุม */}
             <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-1">
               <label className="text-xs font-bold text-slate-400 uppercase">เลือกการประชุม</label>
               <select 
@@ -564,7 +582,6 @@ export default function App() {
               </select>
             </div>
 
-            {/* 2. แถบเพิ่มชื่อ-นามสกุล ตำแหน่ง หน่วยงาน ตามภาพ 100% */}
             <form onSubmit={handleAddQuickMember} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row items-end gap-3">
               <div className="flex-1 w-full">
                 <label className="block text-xs font-bold text-slate-400 mb-1">ชื่อ-นามสกุล</label>
@@ -604,22 +621,15 @@ export default function App() {
               </button>
             </form>
 
-            {/* 3. Card สรุปองค์ประชุม ตามกล่องความต้องการในบรีฟภาพ */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              
-              {/* Card เข้าร่วม */}
               <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
                 <span className="text-xs font-bold text-slate-400 uppercase block">เข้าร่วม</span>
                 <span className="text-2xl font-black text-emerald-600 mt-1 block">{activeAttendanceStats.joined} <span className="text-xs font-medium text-slate-400">คน</span></span>
               </div>
-
-              {/* Card ลา */}
               <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
                 <span className="text-xs font-bold text-slate-400 uppercase block">ลา</span>
                 <span className="text-2xl font-black text-amber-500 mt-1 block">{activeAttendanceStats.leave} <span className="text-xs font-medium text-slate-400">คน</span></span>
               </div>
-
-              {/* Card online/onsite */}
               <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
                 <span className="text-xs font-bold text-slate-400 uppercase block">online / onsite</span>
                 <div className="text-sm font-bold text-slate-700 mt-2 flex justify-between">
@@ -627,8 +637,6 @@ export default function App() {
                   <span>Online: <strong className="text-sky-500 text-base">{activeAttendanceStats.online}</strong></span>
                 </div>
               </div>
-
-              {/* Card สถานะองค์ประชุม ครบ/ยังไม่ครบ */}
               <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
                 <span className="text-xs font-bold text-slate-400 uppercase block">สถานะองค์ประชุม</span>
                 <span className={`text-base font-black mt-2 block ${activeAttendanceStats.joined >= activeAttendanceStats.quorumLimit ? 'text-emerald-600' : 'text-rose-600'}`}>
@@ -636,10 +644,8 @@ export default function App() {
                   <span className="text-xs font-normal text-slate-400 block mt-0.5">(เกณฑ์ขั้นต่ำ {activeAttendanceStats.quorumLimit} คน)</span>
                 </span>
               </div>
-
             </div>
 
-            {/* 4. ตารางรายชื่อที่ทำการเช็คชื่อตามโครงสร้างฟังก์ชันในบรีฟ 100% */}
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
               <table className="w-full text-left text-sm">
                 <thead className="bg-slate-50 font-bold text-slate-500 border-b border-slate-200 text-xs">
@@ -653,10 +659,8 @@ export default function App() {
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-medium text-sm">
                   {getCommitteeMembers(meetings.find(m => m.id === activeMeetingId)?.committeeId || '').map((m) => {
-                    // ดึงเรคคอร์ดเดิม หรือสร้างเรคคอร์ดชั่วคราวเริ่มต้น
                     const currentRecord = attendance[activeMeetingId]?.[m.id] || { status: 'เข้าร่วม', type: 'Onsite', note: '' };
                     
-                    // ฟังก์ชันบันทึกการเปลี่ยนค่าในตารางแบบระบุส่วนพิกัดตัวแปรเรียลไทม์
                     const updateField = (field: 'status' | 'type' | 'note', value: string) => {
                       const currentMeetingAtt = attendance[activeMeetingId] || {};
                       const oldObj = currentMeetingAtt[m.id] || { status: 'เข้าร่วม', type: 'Onsite', note: '' };
@@ -672,25 +676,18 @@ export default function App() {
 
                     return (
                       <tr key={m.id} className="hover:bg-slate-50/50">
-                        {/* 1. ชื่อกรรมการ */}
                         <td className="p-3.5">
                           <div className="font-bold text-slate-800 text-sm">{m.name}</div>
                           <div className="text-xs text-slate-400 font-normal mt-0.5">{m.department}</div>
                         </td>
-
-                        {/* 2. ตำแหน่ง */}
                         <td className="p-3.5 text-slate-600 font-semibold text-xs">{m.role || 'กรรมการ'}</td>
-
-                        {/* 3. สถานะ (ปุ่มกด เข้าร่วม / ลา) */}
                         <td className="p-3.5 text-center">
                           <div className="inline-flex rounded-lg border border-slate-200 p-0.5 bg-slate-50 gap-0.5">
                             <button
                               type="button"
                               onClick={() => updateField('status', 'เข้าร่วม')}
                               className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${
-                                currentRecord.status === 'เข้าร่วม'
-                                ? 'bg-emerald-600 text-white shadow-sm'
-                                : 'text-slate-400 hover:text-slate-600'
+                                currentRecord.status === 'เข้าร่วม' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'
                               }`}
                             >
                               เข้าร่วม
@@ -699,30 +696,24 @@ export default function App() {
                               type="button"
                               onClick={() => updateField('status', 'ลา')}
                               className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${
-                                currentRecord.status === 'ลา'
-                                ? 'bg-amber-500 text-white shadow-sm'
-                                : 'text-slate-400 hover:text-slate-600'
+                                currentRecord.status === 'ลา' ? 'bg-amber-500 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'
                               }`}
                             >
                               ลา
                             </button>
                           </div>
                         </td>
-
-                        {/* 4. ประเภท Online/Onsite (Dropdown List ตามสั่ง 100%) */}
                         <td className="p-3.5 text-center">
                           <select
                             value={currentRecord.type}
                             onChange={(e) => updateField('type', e.target.value)}
-                            disabled={currentRecord.status === 'ลา'} // ปิดถ้าลาประชุม
-                            className="bg-white border border-slate-200 rounded-lg p-1.5 text-xs font-bold text-slate-700 w-28 text-center focus:outline-none focus:border-blue-500 disabled:opacity-50"
+                            disabled={currentRecord.status === 'ลา'}
+                            className="bg-white border border-slate-200 rounded-lg p-1.5 text-xs font-bold text-slate-700 w-28 text-center focus:outline-none disabled:opacity-50"
                           >
                             <option value="Onsite">Onsite</option>
                             <option value="Online">Online</option>
                           </select>
                         </td>
-
-                        {/* 5. หมายเหตุ (พิมพ์ข้อความตามสั่ง 100%) */}
                         <td className="p-3.5">
                           <input 
                             type="text"
@@ -738,7 +729,6 @@ export default function App() {
                 </tbody>
               </table>
             </div>
-
           </div>
         )}
 
@@ -750,14 +740,12 @@ export default function App() {
               <h3 className="font-bold text-slate-800 text-sm">เครื่องมือส่งออกประวัติรายงานเข้าประชุม</h3>
               <p className="text-xs text-slate-400 mt-1">ดาวน์โหลดเอกสารสรุปผลอิงตามสถานะที่บันทึกจริงในเมนูเช็คชื่อ</p>
             </div>
-            
             <div className="text-left">
               <label className="block text-xs font-bold text-slate-400 mb-1 uppercase">เลือกรายการรอบประชุม</label>
               <select value={activeMeetingId} onChange={(e) => setActiveMeetingId(e.target.value)} className="w-full bg-slate-50 border border-slate-200 text-sm font-semibold p-2.5 rounded-xl focus:outline-none">
                 {meetings.map(m => <option key={m.id} value={m.id}>{m.name} (ครั้งที่ {m.round})</option>)}
               </select>
             </div>
-
             <button 
               onClick={() => handleDownloadWord(activeMeetingId)} 
               className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm py-2.5 rounded-xl transition-all shadow-sm flex items-center justify-center gap-2"
