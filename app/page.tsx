@@ -408,44 +408,56 @@ export default function App() {
           </span>
         </div>
 
-        {/* ---------------- VIEW: DASHBOARD ---------------- */}
-        {currentTab === 'dashboard' && (
-          <div className="space-y-5">
-            <div>
-              <h2 className="text-xl font-bold text-slate-900">ภาพรวมข้อมูลการเข้าประชุม</h2>
-            </div>
+       {/* ---------------- VIEW: DASHBOARD (ปรับโครงสร้างตามภาพ) ---------------- */}
+{currentTab === 'dashboard' && (
+  <div className="space-y-6">
+    <div>
+      <h2 className="text-2xl font-bold text-slate-900">ภาพรวมข้อมูลการเข้าประชุม</h2>
+      <p className="text-slate-500 mt-1">สรุปสถานะการประชุมและสถิติภาพรวมของระบบ</p>
+    </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-5">
-              <div className="lg:col-span-3 grid grid-cols-1 sm:grid-cols-3 gap-4 h-fit">
-                <div className="p-5 rounded-xl border bg-blue-50 border-blue-200 text-blue-700 shadow-sm">
-                  <span className="text-xs font-bold uppercase tracking-wider block opacity-75">การประชุมทั้งหมด</span>
-                  <span className="text-3xl font-black mt-3 block">{dynamicStats.total} <span className="text-sm font-medium opacity-80">ครั้ง</span></span>
-                </div>
-                <div className="p-5 rounded-xl border bg-emerald-50 border-emerald-200 text-emerald-700 shadow-sm">
-                  <span className="text-xs font-bold uppercase tracking-wider block opacity-75">มาประชุม ( Onsite )</span>
-                  <span className="text-3xl font-black mt-3 block">{dynamicStats.onsite} <span className="text-sm font-medium opacity-80">คน</span></span>
-                </div>
-                <div className="p-5 rounded-xl border bg-sky-50 border-sky-200 text-sky-700 shadow-sm">
-                  <span className="text-xs font-bold uppercase tracking-wider block opacity-75">มาประชุม ( Online )</span>
-                  <span className="text-3xl font-black mt-3 block">{dynamicStats.online} <span className="text-sm font-medium opacity-80">คน</span></span>
-                </div>
-              </div>
+    {/* โครงสร้าง Grid: 3 ส่วนซ้าย + 1 ส่วนขวา */}
+    <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+      
+      {/* ฝั่งซ้าย: กลุ่มการ์ดแสดงตัวเลขสถิติการประชุมหลัก */}
+      <div className="lg:col-span-3 grid grid-cols-1 sm:grid-cols-3 gap-4 h-fit">
+        {/* การ์ด 1: ทั้งหมด */}
+        <div className="p-6 rounded-2xl border bg-white border-slate-100 shadow-sm shadow-slate-100">
+          <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block">การประชุมทั้งหมด</span>
+          <span className="text-4xl font-black mt-3 block text-slate-800">{dynamicStats.total} <span className="text-sm font-medium text-slate-500">ครั้ง</span></span>
+        </div>
 
-              <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm h-full space-y-4">
-                <div className="text-xs font-bold text-slate-400 uppercase tracking-wider border-b pb-1.5">สถิติสะสมระบบ</div>
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-500 font-semibold text-xs">คณะอนุกรรมการทั้งหมด:</span>
-                  <span className="text-base font-bold text-slate-800">{dynamicStats.totalAllCommittees} คณะ</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-500 font-semibold text-xs">รายชื่อกรรมการรวม:</span>
-                  <span className="text-base font-bold text-slate-800">{dynamicStats.totalAllMembers} ท่าน</span>
-                </div>
-              </div>
-            </div>
+        {/* การ์ด 2: Onsite */}
+        <div className="p-6 rounded-2xl border bg-white border-slate-100 shadow-sm shadow-slate-100">
+          <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block">มาประชุม ( Onsite )</span>
+          <span className="text-4xl font-black mt-3 block text-emerald-600">{dynamicStats.onsite} <span className="text-sm font-medium text-emerald-500">คน</span></span>
+        </div>
+
+        {/* การ์ด 3: Online */}
+        <div className="p-6 rounded-2xl border bg-white border-slate-100 shadow-sm shadow-slate-100">
+          <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block">มาประชุม ( Online )</span>
+          <span className="text-4xl font-black mt-3 block text-sky-600">{dynamicStats.online} <span className="text-sm font-medium text-sky-500">คน</span></span>
+        </div>
+      </div>
+
+      {/* ฝั่งขวา: กล่องแสดงสถิติสะสมระบบ */}
+      <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm h-full space-y-6">
+        <div className="text-xs font-bold text-slate-400 uppercase tracking-wider border-b pb-3">สถิติสะสมระบบ</div>
+        <div className="space-y-4">
+          <div className="flex justify-between items-center">
+            <span className="text-slate-500 font-medium">คณะอนุกรรมการ:</span>
+            <span className="text-lg font-bold text-slate-800">{dynamicStats.totalAllCommittees}</span>
           </div>
-        )}
+          <div className="flex justify-between items-center">
+            <span className="text-slate-500 font-medium">รายชื่อกรรมการ:</span>
+            <span className="text-lg font-bold text-slate-800">{dynamicStats.totalAllMembers}</span>
+          </div>
+        </div>
+      </div>
 
+    </div>
+  </div>
+)}
         {/* ---------------- VIEW: MANAGE MEETINGS ---------------- */}
         {currentTab === 'manage_meetings' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
