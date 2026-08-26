@@ -3,14 +3,22 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { CheckCircle2, Copy, ExternalLink, FlaskConical, Link2, RefreshCw, RotateCcw, Save, Settings2, ShieldCheck, XCircle } from 'lucide-react';
+import { detectSchema } from '../../satisfaction-v2/dynamic-schema.mjs';
 import { DEFAULT_SOURCE, buildGvizUrl, buildShareParams, extractSheetId, normalizeSource } from '../../satisfaction-v2/source-config.mjs';
 import './admin.css';
 
 type SourceConfig = { sheetId: string; sheetName: string; title: string; subtitle: string };
-type TestResult = { ok: boolean; message: string; rows?: number; columns?: number } | null;
-type SheetResponse = { status?: string; errors?: Array<{ message?: string; detailed_message?: string }>; table?: { cols?: unknown[]; rows?: unknown[] } };
+type TestResult = { ok: boolean; message: string; rows?: number; columns?: number; questions?: number; comments?: number } | null;
+type SheetResponse = {
+  status?: string;
+  errors?: Array<{ message?: string; detailed_message?: string }>;
+  table?: {
+    cols?: Array<{ label?: string; id?: string }>;
+    rows?: Array<{ c?: Array<{ v?: unknown; f?: string } | null> }>;
+  };
+};
 
-function testGoogleSheet(source: SourceConfig): Promise<{ rows: number; columns: number }> {
+function testGoogleSheet(source: SourceConfig): Promise<{ rows: number; columns: number; headers: string[]; dataRows: string[][] }> {
   return new Promise((resolve, reject) => {
     const callbackName = `__satisfactionV2Admin_${Date.now()}_${Math.random().toString(36).slice(2)}`;
     const script = document.createElement('script');
@@ -26,7 +34,14 @@ function testGoogleSheet(source: SourceConfig): Promise<{ rows: number; columns:
           const message = response.errors?.map((item) => item.detailed_message || item.message).filter(Boolean).join(' · ');
           throw new Error(message || 'Google Sheet ไม่อนุญาตให้อ่านข้อมูล');
         }
-        resolve({ rows: response.table?.rows?.length || 0, columns: response.table?.cols?.length || 0 });
+        const headers = (response.table?.cols || []).map((column, index) => String(column.label || column.id || `คอลัมน์ ${index + 1}`).trim());
+        const width = Math.max(headers.length, ...(response.table?.rows || []).map((row) => row.c?.length || 0), 0);
+        const normalizedHeaders = Array.from({ length: width }, (_, index) => headers[index] || `คอลัมน์ ${index + 1}`);
+        const dataRows = (response.table?.rows || []).map((row) => Array.from({ length: width }, (_, index) => {
+          const cell = row.c?.[index];
+          return cell ? String(cell.f ?? cell.v ?? '') : '';
+        }));
+        resolve({ rows: dataRows.length, columns: width, headers: normalizedHeaders, dataRows });
       } catch (error) { reject(error); } finally { cleanup(); }
     };
     script.onerror = () => { if (!settled) { settled = true; window.clearTimeout(timeout); cleanup(); reject(new Error('เชื่อมต่อไม่ได้ กรุณาตรวจสิทธิ์การแชร์ Google Sheet')); } };
@@ -67,8 +82,12 @@ export default function SatisfactionV2Admin() {
     setTesting(true); setResult(null);
     try {
       const info = await testGoogleSheet(source);
-      const structureNote = info.columns >= 11 ? 'โครงสร้างคอลัมน์เพียงพอสำหรับ Dashboard เดิม' : `พบ ${info.columns} คอลัมน์ — ควรตรวจให้มีอย่างน้อย 11 คอลัมน์`;
-      setResult({ ok: info.columns >= 11, message: `เชื่อมต่อสำเร็จ · ${structureNote}`, rows: info.rows, columns: info.columns });
+      const schema = detectSchema(info.headers, info.dataRows);
+      const ok = schema.questionIndexes.length > 0;
+      const message = ok
+        ? `เชื่อมต่อสำเร็จ · ตรวจพบประเด็นประเมิน ${schema.questionIndexes.length} ข้อ และช่องข้อเสนอแนะ ${schema.commentIndexes.length} ช่อง`
+        : 'เชื่อมต่อสำเร็จ แต่ยังตรวจไม่พบคอลัมน์คะแนน 1–5 กรุณาตรวจหัวคอลัมน์และข้อมูล';
+      setResult({ ok, message, rows: info.rows, columns: info.columns, questions: schema.questionIndexes.length, comments: schema.commentIndexes.length });
     } catch (error) {
       setResult({ ok: false, message: error instanceof Error ? error.message : 'ทดสอบการเชื่อมต่อไม่สำเร็จ' });
     } finally { setTesting(false); }
@@ -93,7 +112,7 @@ export default function SatisfactionV2Admin() {
   };
 
   return <main className="satadmin-page"><div className="satadmin-shell">
-    <header className="satadmin-header"><div><span><Settings2 size={15}/> SATISFACTION V2 ADMIN</span><h1>ตั้งค่าแหล่งข้อมูลสำหรับระบบทดสอบ</h1><p>การตั้งค่านี้มีผลเฉพาะ `/satisfaction-v2` เท่านั้น ระบบเดิม `/satisfaction` ไม่ถูกแก้ไข</p></div><div className="satadmin-shield"><ShieldCheck size={24}/><strong>Legacy Safe</strong><small>แยกจากระบบใช้งานจริง</small></div></header>
+    <header className="satadmin-header"><div><span><Settings2 size={15}/> SATISFACTION V2 ADMIN</span><h1>ตั้งค่าแหล่งข้อมูลสำหรับระบบทดสอบ</h1><p>V2 จะอ่านชื่อและจำนวนประเด็นจากหัวคอลัมน์ Google Sheet อัตโนมัติ โดยไม่แก้ `/satisfaction` เดิม</p></div><div className="satadmin-shield"><ShieldCheck size={24}/><strong>Legacy Safe</strong><small>แยกจากระบบใช้งานจริง</small></div></header>
 
     <section className="satadmin-layout">
       <article className="satadmin-card">
@@ -102,12 +121,12 @@ export default function SatisfactionV2Admin() {
         <label>ชื่อ Sheet / Tab<input value={sheetName} onChange={(e) => { setSheetName(e.target.value); setResult(null); }} placeholder="Form Responses 1"/></label>
         <div className="satadmin-two"><label>ชื่อ Dashboard<input value={title} onChange={(e) => setTitle(e.target.value)}/></label><label>รายละเอียดการประชุม<input value={subtitle} onChange={(e) => setSubtitle(e.target.value)}/></label></div>
         <div className="satadmin-actions"><button className="secondary" onClick={handleTest} disabled={testing}><RefreshCw className={testing ? 'spin' : ''} size={16}/>{testing ? 'กำลังทดสอบ...' : 'ทดสอบการเชื่อมต่อ'}</button><button className="primary" onClick={handleSave}><Save size={16}/>{saved ? 'บันทึกแล้ว' : 'บันทึกสำหรับเครื่องนี้'}</button><button className="ghost" onClick={handleReset}><RotateCcw size={15}/>คืนค่าเดิม</button></div>
-        {result && <div className={`satadmin-result ${result.ok ? 'ok' : 'bad'}`}>{result.ok ? <CheckCircle2 size={19}/> : <XCircle size={19}/>}<div><strong>{result.ok ? 'พร้อมทดสอบ' : 'ต้องตรวจสอบ'}</strong><p>{result.message}</p>{typeof result.rows === 'number' && <small>ข้อมูล {result.rows.toLocaleString('th-TH')} แถว · {result.columns} คอลัมน์</small>}</div></div>}
+        {result && <div className={`satadmin-result ${result.ok ? 'ok' : 'bad'}`}>{result.ok ? <CheckCircle2 size={19}/> : <XCircle size={19}/>}<div><strong>{result.ok ? 'พร้อมทดสอบ Dynamic Questions' : 'ต้องตรวจสอบ'}</strong><p>{result.message}</p>{typeof result.rows === 'number' && <small>ข้อมูล {result.rows.toLocaleString('th-TH')} แถว · {result.columns} คอลัมน์{typeof result.questions === 'number' ? ` · ประเด็น ${result.questions} ข้อ` : ''}{typeof result.comments === 'number' ? ` · ข้อเสนอแนะ ${result.comments} ช่อง` : ''}</small>}</div></div>}
       </article>
 
       <aside className="satadmin-side">
         <article className="satadmin-card"><div className="satadmin-card-head"><div><span>SHARE TEST</span><h2>ลิงก์สำหรับทดสอบ V2</h2></div><Link2 size={21}/></div><p className="satadmin-muted">ลิงก์นี้ฝังค่าของ Google Sheet ไว้ใน URL จึงเปิดจากเครื่องอื่นได้โดยไม่กระทบระบบเดิม</p><div className="satadmin-share">{shareUrl}</div><div className="satadmin-actions vertical"><button className="primary" onClick={handleCopy}><Copy size={16}/>{copied ? 'คัดลอกแล้ว' : 'คัดลอกลิงก์ทดสอบ'}</button><a href={shareUrl || '/satisfaction-v2'} target="_blank" rel="noreferrer"><ExternalLink size={16}/>เปิด Dashboard V2</a><Link href="/satisfaction"><ShieldCheck size={16}/>เปิดระบบเดิม</Link></div></article>
-        <article className="satadmin-card satadmin-check"><h2>หลักการทดสอบ</h2><ul><li>ระบบเดิมยังอยู่ที่ <code>/satisfaction</code></li><li>ระบบใหม่อยู่ที่ <code>/satisfaction-v2</code></li><li>เปลี่ยน Google Sheet ได้เฉพาะ V2</li><li>ควรทดสอบให้จำนวนผู้ตอบและคะแนนตรงกับระบบเดิมก่อนนำไปใช้แทน</li></ul></article>
+        <article className="satadmin-card satadmin-check"><h2>หลักการตรวจจับอัตโนมัติ</h2><ul><li>Timestamp/วันที่ → ใช้สำหรับตัวกรองวันที่</li><li>หน่วยงาน/สังกัด → ใช้สำหรับตัวกรองหน่วยงาน</li><li>คอลัมน์คะแนน 1–5 → สร้างเป็นประเด็นกราฟอัตโนมัติ</li><li>ข้อเสนอแนะ/ข้อคิดเห็น → ไม่นำมาคำนวณคะแนน</li><li>ระบบเดิมยังอยู่ที่ <code>/satisfaction</code> และไม่ถูกแก้ไข</li></ul></article>
       </aside>
     </section>
   </div></main>;
