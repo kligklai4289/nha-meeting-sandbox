@@ -37,10 +37,10 @@ function testGoogleSheet(source: SourceConfig): Promise<{ rows: number; columns:
 }
 
 export default function SatisfactionV2Admin() {
-  const [sheetUrl, setSheetUrl] = useState(`https://docs.google.com/spreadsheets/d/${DEFAULT_SOURCE.sheetId}/edit`);
-  const [sheetName, setSheetName] = useState(DEFAULT_SOURCE.sheetName);
-  const [title, setTitle] = useState(DEFAULT_SOURCE.title);
-  const [subtitle, setSubtitle] = useState(DEFAULT_SOURCE.subtitle);
+  const [sheetUrl, setSheetUrl] = useState<string>(`https://docs.google.com/spreadsheets/d/${DEFAULT_SOURCE.sheetId}/edit`);
+  const [sheetName, setSheetName] = useState<string>(DEFAULT_SOURCE.sheetName);
+  const [title, setTitle] = useState<string>(DEFAULT_SOURCE.title);
+  const [subtitle, setSubtitle] = useState<string>(DEFAULT_SOURCE.subtitle);
   const [testing, setTesting] = useState(false);
   const [result, setResult] = useState<TestResult>(null);
   const [saved, setSaved] = useState(false);
