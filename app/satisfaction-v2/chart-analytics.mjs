@@ -70,21 +70,18 @@ export function summarizeQuestionDistribution(rows = [], schema) {
       score,
       count: scores.filter((value) => Math.round(value) === score).length,
     }));
-    let allocated = 0;
+    const roundedPercents = counts.map((item) => total ? Number(((item.count / total) * 100).toFixed(1)) : 0);
+    const lastNonEmptyIndex = counts.reduce((last, item, index) => item.count > 0 ? index : last, -1);
+    if (total && lastNonEmptyIndex >= 0) {
+      const roundedTotal = roundedPercents.reduce((sum, value) => sum + value, 0);
+      roundedPercents[lastNonEmptyIndex] = Number((roundedPercents[lastNonEmptyIndex] + (100 - roundedTotal)).toFixed(1));
+    }
     return {
       index: position,
       columnIndex,
       label: schema.questionLabels[position],
       total,
-      scores: counts.map((item, index) => {
-        const percent = total
-          ? index === counts.length - 1
-            ? Number((100 - allocated).toFixed(1))
-            : Number(((item.count / total) * 100).toFixed(1))
-          : 0;
-        allocated += percent;
-        return { ...item, percent };
-      }),
+      scores: counts.map((item, index) => ({ ...item, percent: roundedPercents[index] })),
     };
   });
 }
