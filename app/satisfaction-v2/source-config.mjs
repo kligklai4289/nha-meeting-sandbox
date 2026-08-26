@@ -26,7 +26,7 @@ export function normalizeSource(input = {}) {
 export function buildGvizUrl(source, callbackName, cacheBust = Date.now()) {
   const normalized = normalizeSource(source);
   const tqx = `out:json;responseHandler:${callbackName}`;
-  return `https://docs.google.com/spreadsheets/d/${normalized.sheetId}/gviz/tq?sheet=${encodeURIComponent(normalized.sheetName)}&tqx=${encodeURIComponent(tqx)}&_=${cacheBust}`;
+  return `https://docs.google.com/spreadsheets/d/${normalized.sheetId}/gviz/tq?sheet=${encodeURIComponent(normalized.sheetName)}&headers=1&tqx=${encodeURIComponent(tqx)}&_=${cacheBust}`;
 }
 
 export function buildShareParams(source) {
