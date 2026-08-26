@@ -3,14 +3,22 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Activity, Building2, CalendarDays, CheckCircle2, Clock3, ExternalLink, RefreshCw, Settings2, Star, Target, TrendingUp, Users } from 'lucide-react';
-import { summarizeResponses } from '../satisfaction/metrics.js';
+import { detectSchema, summarizeDynamic } from './dynamic-schema.mjs';
 import { DEFAULT_SOURCE, buildGvizUrl, normalizeSource } from './source-config.mjs';
 import './v2.css';
 
 const REFRESH_MS = 15000;
 
 type SourceConfig = { sheetId: string; sheetName: string; title: string; subtitle: string };
-type SheetResponse = { status?: string; errors?: Array<{ message?: string; detailed_message?: string }>; table?: { rows?: Array<{ c?: Array<{ v?: unknown; f?: string } | null> }> } };
+type SheetResponse = {
+  status?: string;
+  errors?: Array<{ message?: string; detailed_message?: string }>;
+  table?: {
+    cols?: Array<{ label?: string; id?: string }>;
+    rows?: Array<{ c?: Array<{ v?: unknown; f?: string } | null> }>;
+  };
+};
+type SheetData = { headers: string[]; rows: string[][] };
 
 function sourceFromLocation(): SourceConfig {
   const params = new URLSearchParams(window.location.search);
@@ -26,7 +34,7 @@ function sourceFromLocation(): SourceConfig {
   }) as SourceConfig;
 }
 
-function loadGoogleSheet(source: SourceConfig): Promise<string[][]> {
+function loadGoogleSheet(source: SourceConfig): Promise<SheetData> {
   return new Promise((resolve, reject) => {
     const callbackName = `__satisfactionV2_${Date.now()}_${Math.random().toString(36).slice(2)}`;
     const script = document.createElement('script');
@@ -51,11 +59,14 @@ function loadGoogleSheet(source: SourceConfig): Promise<string[][]> {
           const message = response.errors?.map((item) => item.detailed_message || item.message).filter(Boolean).join(' · ');
           throw new Error(message || 'Google Sheet ไม่อนุญาตให้อ่านข้อมูล');
         }
-        const rows = (response?.table?.rows || []).map((row) => Array.from({ length: 11 }, (_, index) => {
+        const headers = (response?.table?.cols || []).map((column, index) => String(column.label || column.id || `คอลัมน์ ${index + 1}`).trim());
+        const width = Math.max(headers.length, ...(response?.table?.rows || []).map((row) => row.c?.length || 0), 0);
+        const normalizedHeaders = Array.from({ length: width }, (_, index) => headers[index] || `คอลัมน์ ${index + 1}`);
+        const rows = (response?.table?.rows || []).map((row) => Array.from({ length: width }, (_, index) => {
           const cell = row.c?.[index];
           return cell ? String(cell.f ?? cell.v ?? '') : '';
         }));
-        resolve(rows.filter((row) => row.some((value) => value.trim() !== '')));
+        resolve({ headers: normalizedHeaders, rows: rows.filter((row) => row.some((value) => value.trim() !== '')) });
       } catch (error) {
         reject(error);
       } finally {
@@ -109,7 +120,7 @@ function Kpi({ icon, label, value, sub }: { icon: React.ReactNode; label: string
 
 export default function SatisfactionV2Dashboard() {
   const [source, setSource] = useState<SourceConfig>(DEFAULT_SOURCE as SourceConfig);
-  const [rows, setRows] = useState<string[][]>([]);
+  const [sheetData, setSheetData] = useState<SheetData>({ headers: [], rows: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -122,7 +133,7 @@ export default function SatisfactionV2Dashboard() {
     if (!silent) setLoading(true);
     try {
       const data = await loadGoogleSheet(config);
-      setRows(data);
+      setSheetData(data);
       setError('');
       setLastUpdated(new Date());
     } catch (err) {
@@ -136,18 +147,23 @@ export default function SatisfactionV2Dashboard() {
     return () => window.clearInterval(timer);
   }, [source]);
 
-  const dates = useMemo(() => Array.from(new Set(rows.map((row) => dateKey(row[0])).filter(Boolean))).sort().reverse(), [rows]);
-  const organizations = useMemo(() => Array.from(new Set(rows.map((row) => row[1]?.trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'th')), [rows]);
-  const filteredRows = useMemo(() => rows.filter((row) => (selectedDate === 'all' || dateKey(row[0]) === selectedDate) && (selectedOrg === 'all' || row[1]?.trim() === selectedOrg)), [rows, selectedDate, selectedOrg]);
-  const summary = useMemo(() => summarizeResponses(filteredRows), [filteredRows]);
+  const schema = useMemo(() => detectSchema(sheetData.headers, sheetData.rows), [sheetData]);
+  const dates = useMemo(() => Array.from(new Set(sheetData.rows.map((row) => dateKey(row[schema.timestampIndex] || '')).filter(Boolean))).sort().reverse(), [sheetData.rows, schema.timestampIndex]);
+  const organizations = useMemo(() => Array.from(new Set(sheetData.rows.map((row) => row[schema.organizationIndex]?.trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'th')), [sheetData.rows, schema.organizationIndex]);
+  const filteredRows = useMemo(() => sheetData.rows.filter((row) => {
+    const dateValue = row[schema.timestampIndex] || '';
+    const orgValue = row[schema.organizationIndex]?.trim() || '';
+    return (selectedDate === 'all' || dateKey(dateValue) === selectedDate) && (selectedOrg === 'all' || orgValue === selectedOrg);
+  }), [sheetData.rows, schema.timestampIndex, schema.organizationIndex, selectedDate, selectedOrg]);
+  const summary = useMemo(() => summarizeDynamic(filteredRows, schema), [filteredRows, schema]);
   const sourceUrl = `https://docs.google.com/spreadsheets/d/${source.sheetId}/edit`;
 
   return <main className="satv2-page"><div className="satv2-shell">
-    <div className="satv2-note"><strong>V2 TEST MODE</strong><span>ระบบนี้แยกจาก `/satisfaction` เดิมโดยสมบูรณ์</span><Link href="/admin/satisfaction-v2"><Settings2 size={16}/> ตั้งค่า V2</Link></div>
+    <div className="satv2-note"><strong>V2 TEST MODE</strong><span>หัวข้อประเมินอ่านจาก Google Sheet อัตโนมัติ · ระบบเดิม `/satisfaction` ไม่ถูกแก้ไข</span><Link href="/admin/satisfaction-v2"><Settings2 size={16}/> ตั้งค่า V2</Link></div>
     <header className="satv2-header"><div><div className="satv2-eyebrow"><Activity size={15}/> LIVE SATISFACTION DASHBOARD V2</div><h1>{source.title}</h1><p>{source.subtitle}</p></div><div className="satv2-live"><span className={error ? 'bad' : ''}/><strong>{error ? 'เชื่อมต่อไม่ได้' : 'LIVE'}</strong><small><Clock3 size={13}/> {lastUpdated ? lastUpdated.toLocaleTimeString('th-TH') : '—'}</small></div></header>
     {error && <div className="satv2-alert"><div><strong>เชื่อมข้อมูลไม่ได้</strong><br/>{error}</div><a href={sourceUrl} target="_blank" rel="noreferrer">เปิด Google Sheet <ExternalLink size={15}/></a></div>}
     <section className="satv2-toolbar"><div><CalendarDays size={16}/><select value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)}><option value="all">ทุกวันที่</option>{dates.map((d) => <option key={d} value={d}>{thaiDateLabel(d)}</option>)}</select></div><div><Building2 size={16}/><select value={selectedOrg} onChange={(e) => setSelectedOrg(e.target.value)}><option value="all">ทุกหน่วยงาน</option>{organizations.map((org) => <option key={org} value={org}>{org}</option>)}</select></div><button onClick={() => refresh()} disabled={loading}><RefreshCw className={loading ? 'spin' : ''} size={16}/> อัปเดต</button><a href={sourceUrl} target="_blank" rel="noreferrer">Google Sheet <ExternalLink size={14}/></a></section>
-    <section className="satv2-kpis"><Kpi icon={<Users size={22}/>} label="ผู้ตอบ" value={`${summary.respondents.toLocaleString('th-TH')} คน`} sub={`ข้อมูลทั้งหมด ${rows.length.toLocaleString('th-TH')} รายการ`}/><Kpi icon={<Star size={22}/>} label="คะแนนเฉลี่ย" value={summary.respondents ? `${summary.average.toFixed(2)} / 5` : '— / 5'} sub="7 ประเด็นประเมิน"/><Kpi icon={<Target size={22}/>} label="ความพึงพอใจ" value={summary.respondents ? `${summary.satisfactionPercent.toFixed(1)}%` : '—%'} sub={scoreLevel(summary.satisfactionPercent)}/><Kpi icon={<CheckCircle2 size={22}/>} label="Positive Rate" value={summary.respondents ? `${summary.positiveRate.toFixed(1)}%` : '—%'} sub="คะแนนระดับ 4–5"/></section>
-    {!summary.respondents && !error ? <section className="satv2-empty"><TrendingUp size={38}/><h2>V2 พร้อมรับข้อมูล</h2><p>เมื่อ Google Sheet มีคำตอบ ระบบจะอัปเดตอัตโนมัติประมาณทุก 15 วินาที</p></section> : <section className="satv2-grid"><article className="satv2-card"><h2>คะแนนเฉลี่ยรายประเด็น</h2>{summary.questionAverages.map((item: { index: number; label: string; average: number; count: number }) => <div className="satv2-bar-row" key={item.index}><span>{item.index + 1}. {item.label}</span><div><i style={{ width: `${Math.max(0, Math.min(100, (item.average / 5) * 100))}%` }}/></div><strong>{item.count ? item.average.toFixed(2) : '—'}</strong></div>)}</article><article className="satv2-card"><h2>สรุปการทดสอบแหล่งข้อมูล</h2><dl><div><dt>Sheet ID</dt><dd>{source.sheetId}</dd></div><div><dt>Sheet Tab</dt><dd>{source.sheetName}</dd></div><div><dt>สถานะ</dt><dd>{error ? 'ต้องตรวจสอบ' : 'เชื่อมต่อสำเร็จ'}</dd></div><div><dt>จำนวนรายการ</dt><dd>{rows.length.toLocaleString('th-TH')}</dd></div></dl></article></section>}
+    <section className="satv2-kpis"><Kpi icon={<Users size={22}/>} label="ผู้ตอบ" value={`${summary.respondents.toLocaleString('th-TH')} คน`} sub={`ข้อมูลทั้งหมด ${sheetData.rows.length.toLocaleString('th-TH')} รายการ`}/><Kpi icon={<Star size={22}/>} label="คะแนนเฉลี่ย" value={summary.respondents && schema.questionIndexes.length ? `${summary.average.toFixed(2)} / 5` : '— / 5'} sub={`${schema.questionIndexes.length.toLocaleString('th-TH')} ประเด็นประเมิน`}/><Kpi icon={<Target size={22}/>} label="ความพึงพอใจ" value={summary.respondents && schema.questionIndexes.length ? `${summary.satisfactionPercent.toFixed(1)}%` : '—%'} sub={scoreLevel(summary.satisfactionPercent)}/><Kpi icon={<CheckCircle2 size={22}/>} label="Positive Rate" value={summary.respondents && schema.questionIndexes.length ? `${summary.positiveRate.toFixed(1)}%` : '—%'} sub="คะแนนระดับ 4–5"/></section>
+    {!summary.respondents && !error ? <section className="satv2-empty"><TrendingUp size={38}/><h2>V2 พร้อมรับข้อมูล</h2><p>ตรวจพบ {schema.questionIndexes.length.toLocaleString('th-TH')} ประเด็นประเมินจากหัวคอลัมน์ เมื่อ Google Sheet มีคำตอบ ระบบจะอัปเดตอัตโนมัติประมาณทุก 15 วินาที</p></section> : <section className="satv2-grid"><article className="satv2-card"><h2>คะแนนเฉลี่ยรายประเด็น</h2>{summary.questionAverages.map((item: { index: number; label: string; average: number; count: number }) => <div className="satv2-bar-row" key={`${item.index}-${item.label}`}><span>{item.index + 1}. {item.label}</span><div><i style={{ width: `${Math.max(0, Math.min(100, (item.average / 5) * 100))}%` }}/></div><strong>{item.count ? item.average.toFixed(2) : '—'}</strong></div>)}</article><article className="satv2-card"><h2>โครงสร้างที่ตรวจพบ</h2><dl><div><dt>Sheet Tab</dt><dd>{source.sheetName}</dd></div><div><dt>ประเด็นคะแนน</dt><dd>{schema.questionIndexes.length.toLocaleString('th-TH')} ข้อ</dd></div><div><dt>ช่องข้อเสนอแนะ</dt><dd>{schema.commentIndexes.length.toLocaleString('th-TH')} ช่อง</dd></div><div><dt>จำนวนรายการ</dt><dd>{sheetData.rows.length.toLocaleString('th-TH')}</dd></div></dl></article></section>}
   </div></main>;
 }
