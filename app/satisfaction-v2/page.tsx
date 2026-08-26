@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Activity, BarChart3, Building2, CalendarDays, CheckCircle2, Clock3, ExternalLink, LineChart, MessageSquareText, PieChart, RefreshCw, Settings2, Sparkles, Star, Target, TrendingUp, Users } from 'lucide-react';
 import { detectSchema, summarizeDynamic } from './dynamic-schema.mjs';
 import { buildExecutiveInsight, summarizeByDate, summarizeByOrganization, summarizeComments, summarizeQuestionDistribution } from './chart-analytics.mjs';
+import { parseGvizTable } from './gviz-table.mjs';
 import { DEFAULT_SOURCE, buildGvizUrl, normalizeSource } from './source-config.mjs';
 import './v2.css';
 
@@ -62,14 +63,8 @@ function loadGoogleSheet(source: SourceConfig): Promise<SheetData> {
           const message = response.errors?.map((item) => item.detailed_message || item.message).filter(Boolean).join(' · ');
           throw new Error(message || 'Google Sheet ไม่อนุญาตให้อ่านข้อมูล');
         }
-        const headers = (response?.table?.cols || []).map((column, index) => String(column.label || column.id || `คอลัมน์ ${index + 1}`).trim());
-        const width = Math.max(headers.length, ...(response?.table?.rows || []).map((row) => row.c?.length || 0), 0);
-        const normalizedHeaders = Array.from({ length: width }, (_, index) => headers[index] || `คอลัมน์ ${index + 1}`);
-        const rows = (response?.table?.rows || []).map((row) => Array.from({ length: width }, (_, index) => {
-          const cell = row.c?.[index];
-          return cell ? String(cell.f ?? cell.v ?? '') : '';
-        }));
-        resolve({ headers: normalizedHeaders, rows: rows.filter((row) => row.some((value) => value.trim() !== '')) });
+        const parsed = parseGvizTable(response);
+        resolve({ headers: parsed.headers, rows: parsed.rows });
       } catch (error) { reject(error); } finally { cleanup(); }
     };
 

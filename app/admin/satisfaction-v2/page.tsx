@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { CheckCircle2, Copy, ExternalLink, FlaskConical, Link2, RefreshCw, RotateCcw, Save, Settings2, ShieldCheck, XCircle } from 'lucide-react';
 import { detectSchema } from '../../satisfaction-v2/dynamic-schema.mjs';
+import { parseGvizTable } from '../../satisfaction-v2/gviz-table.mjs';
 import { DEFAULT_SOURCE, buildGvizUrl, buildShareParams, extractSheetId, normalizeSource } from '../../satisfaction-v2/source-config.mjs';
 import './admin.css';
 
@@ -34,14 +35,8 @@ function testGoogleSheet(source: SourceConfig): Promise<{ rows: number; columns:
           const message = response.errors?.map((item) => item.detailed_message || item.message).filter(Boolean).join(' · ');
           throw new Error(message || 'Google Sheet ไม่อนุญาตให้อ่านข้อมูล');
         }
-        const headers = (response.table?.cols || []).map((column, index) => String(column.label || column.id || `คอลัมน์ ${index + 1}`).trim());
-        const width = Math.max(headers.length, ...(response.table?.rows || []).map((row) => row.c?.length || 0), 0);
-        const normalizedHeaders = Array.from({ length: width }, (_, index) => headers[index] || `คอลัมน์ ${index + 1}`);
-        const dataRows = (response.table?.rows || []).map((row) => Array.from({ length: width }, (_, index) => {
-          const cell = row.c?.[index];
-          return cell ? String(cell.f ?? cell.v ?? '') : '';
-        }));
-        resolve({ rows: dataRows.length, columns: width, headers: normalizedHeaders, dataRows });
+        const parsed = parseGvizTable(response);
+        resolve({ rows: parsed.rows.length, columns: parsed.columns, headers: parsed.headers, dataRows: parsed.rows });
       } catch (error) { reject(error); } finally { cleanup(); }
     };
     script.onerror = () => { if (!settled) { settled = true; window.clearTimeout(timeout); cleanup(); reject(new Error('เชื่อมต่อไม่ได้ กรุณาตรวจสิทธิ์การแชร์ Google Sheet')); } };
