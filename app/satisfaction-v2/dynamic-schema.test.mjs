@@ -45,6 +45,38 @@ test('summarizes any number of detected score columns', () => {
   assert.equal(summary.respondents, 2);
   assert.equal(summary.questionAverages.length, 3);
   assert.equal(summary.average, 4.17);
-  assert.equal(summary.satisfactionPercent, 83.4);
+  assert.equal(summary.satisfactionPercent, 83.33);
   assert.equal(summary.positiveRate, 83.33);
+});
+
+test('exposes a role for every field so each column can be processed', () => {
+  const headers = ['Timestamp', 'หน่วยงานที่สังกัด', 'Q1', 'Q2', 'ข้อเสนอแนะ', 'ข้อคิดเห็นอื่นๆ'];
+  const rows = [['2026-08-26', 'A', '5', '4', 'ดี', '']];
+  const schema = detectSchema(headers, rows);
+  assert.deepEqual(schema.fieldDefinitions.map((field) => field.role), [
+    'time', 'organization', 'score', 'score', 'comment', 'comment',
+  ]);
+});
+
+test('summarizes score, organization, time, and comment fields independently', () => {
+  const headers = ['Timestamp', 'หน่วยงานที่สังกัด', 'Q1', 'Q2', 'ข้อเสนอแนะ'];
+  const rows = [
+    ['2026-08-26 09:00', 'A', '5', '4', 'ดีมาก'],
+    ['2026-08-26 10:00', 'A', '4', '3', ''],
+    ['2026-08-27 09:00', 'B', '3', '5', 'ปรับอาหาร'],
+  ];
+  const schema = detectSchema(headers, rows);
+  const summary = summarizeDynamic(rows, schema);
+  const org = summary.fieldSummaries.find((field) => field.role === 'organization');
+  const q1 = summary.fieldSummaries.find((field) => field.label === 'Q1');
+  const comment = summary.fieldSummaries.find((field) => field.role === 'comment');
+  assert.deepEqual(org.values.slice(0, 2), [
+    { value: 'A', count: 2, percent: 66.67 },
+    { value: 'B', count: 1, percent: 33.33 },
+  ]);
+  assert.equal(q1.average, 4);
+  assert.equal(q1.satisfactionPercent, 80);
+  assert.equal(q1.positiveRate, 66.67);
+  assert.equal(comment.responses, 2);
+  assert.equal(comment.responseRate, 66.67);
 });
