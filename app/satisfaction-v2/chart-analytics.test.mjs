@@ -34,6 +34,18 @@ test('question distribution percentages total 100 percent', () => {
   assert.equal(total, 100);
 });
 
+test('stacked rounding never assigns percent to an empty score bucket', () => {
+  const unevenRows = [
+    ['2026-08-26 09:00', 'A', '1', '4', '', ''],
+    ['2026-08-26 10:00', 'A', '2', '4', '', ''],
+    ['2026-08-26 11:00', 'A', '3', '4', '', ''],
+  ];
+  const data = summarizeQuestionDistribution(unevenRows, schema)[0];
+  assert.equal(data.scores.find((item) => item.score === 5).percent, 0);
+  assert.equal(data.scores.find((item) => item.score === 4).percent, 0);
+  assert.equal(data.scores.reduce((sum, item) => sum + item.percent, 0), 100);
+});
+
 test('organization summaries compare satisfaction averages', () => {
   const data = summarizeByOrganization(rows, schema);
   assert.equal(data.length, 2);
