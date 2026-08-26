@@ -45,7 +45,7 @@ test('summarizes any number of detected score columns', () => {
   assert.equal(summary.respondents, 2);
   assert.equal(summary.questionAverages.length, 3);
   assert.equal(summary.average, 4.17);
-  assert.equal(summary.satisfactionPercent, 83.4);
+  assert.equal(summary.satisfactionPercent, 83.33);
   assert.equal(summary.positiveRate, 83.33);
 });
 
