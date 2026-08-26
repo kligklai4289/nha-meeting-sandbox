@@ -22,6 +22,12 @@ test('builds an encoded GViz JSONP URL', () => {
   assert.match(url, /_=123/);
 });
 
+test('forces row 1 to be treated as headers so empty Form response sheets keep their columns', () => {
+  const url = buildGvizUrl({ sheetId: 'abc', sheetName: 'Form Responses 1' }, '__cb', 123);
+  const parsed = new URL(url);
+  assert.equal(parsed.searchParams.get('headers'), '1');
+});
+
 test('builds share parameters that round-trip source fields', () => {
   const params = buildShareParams({ sheetId: 'abc', sheetName: 'Responses', title: 'Meeting A', subtitle: '27 Aug' });
   const parsed = new URLSearchParams(params);
