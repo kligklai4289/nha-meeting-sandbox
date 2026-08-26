@@ -1,12 +1,24 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { summarizeQuestionDistribution, summarizeByOrganization, summarizeByDate } from './chart-analytics.mjs';
+import {
+  summarizeQuestionDistribution,
+  summarizeByOrganization,
+  summarizeByDate,
+  summarizeComments,
+  buildExecutiveInsight,
+} from './chart-analytics.mjs';
 
-const schema = { timestampIndex: 0, organizationIndex: 1, questionIndexes: [2, 3], questionLabels: ['เนื้อหา', 'สถานที่'], commentIndexes: [] };
+const schema = {
+  timestampIndex: 0,
+  organizationIndex: 1,
+  questionIndexes: [2, 3],
+  questionLabels: ['เนื้อหา', 'สถานที่'],
+  commentIndexes: [4, 5],
+};
 const rows = [
-  ['2026-08-26 09:00', 'A', '5', '4'],
-  ['2026-08-26 10:00', 'A', '4', '4'],
-  ['2026-08-27 09:00', 'B', '3', '5'],
+  ['2026-08-26 09:00', 'A', '5', '4', 'ดีมาก ประทับใจ', ''],
+  ['2026-08-26 10:00', 'A', '4', '4', 'ควรเพิ่มเวลาอภิปราย', 'อาหารดี'],
+  ['2026-08-27 09:00', 'B', '3', '5', '', 'อยากปรับปรุงระบบเสียง'],
 ];
 
 test('question distribution returns counts for each score', () => {
@@ -14,6 +26,12 @@ test('question distribution returns counts for each score', () => {
   assert.equal(data.length, 2);
   assert.equal(data[0].scores.find((x) => x.score === 5).count, 1);
   assert.equal(data[0].total, 3);
+});
+
+test('question distribution percentages total 100 percent', () => {
+  const data = summarizeQuestionDistribution(rows, schema);
+  const total = data[0].scores.reduce((sum, item) => sum + item.percent, 0);
+  assert.equal(total, 100);
 });
 
 test('organization summaries compare satisfaction averages', () => {
@@ -28,4 +46,30 @@ test('date summaries are chronological', () => {
   const data = summarizeByDate(rows, schema);
   assert.deepEqual(data.map((x) => x.dateKey), ['2026-08-26', '2026-08-27']);
   assert.equal(data[0].respondents, 2);
+});
+
+test('comment summary gathers dynamic comment columns and classifies basic intent', () => {
+  const result = summarizeComments(rows, schema);
+  assert.equal(result.total, 4);
+  assert.equal(result.positiveCount, 2);
+  assert.equal(result.suggestionCount, 2);
+  assert.equal(result.generalCount, 0);
+  assert.equal(result.recent.length, 4);
+  assert.ok(result.topTerms.some((item) => item.term.includes('อาหาร')));
+});
+
+test('executive insight describes satisfaction and best/worst questions', () => {
+  const summary = {
+    respondents: 3,
+    satisfactionPercent: 83.3,
+    positiveRate: 66.7,
+    best: { label: 'สถานที่', average: 4.8 },
+    worst: { label: 'เนื้อหา', average: 3.9 },
+  };
+  const comments = { total: 4, suggestionCount: 2 };
+  const insight = buildExecutiveInsight(summary, comments);
+  assert.match(insight.headline, /83\.3%/);
+  assert.match(insight.detail, /สถานที่/);
+  assert.match(insight.detail, /เนื้อหา/);
+  assert.match(insight.commentNote, /2/);
 });
