@@ -24,3 +24,11 @@ test('buildExcelHtml includes dashboard summary, filters, field analytics, and r
 test('buildExportFilename creates a safe dated filename', () => {
   assert.equal(buildExportFilename('ผลประเมิน / เขต 4', '2026-08-27', 'xls'), 'ผลประเมิน-เขต-4_2026-08-27.xls');
 });
+
+
+test('buildCsv prevents spreadsheet formula execution from exported text', () => {
+  const csv = buildCsv(['ความคิดเห็น'], [['=HYPERLINK("https://example.com")'], ['+cmd'], ['@SUM(A1:A2)']]);
+  assert.match(csv, /'=HYPERLINK/);
+  assert.match(csv, /'\+cmd/);
+  assert.match(csv, /'@SUM/);
+});
