@@ -2,8 +2,13 @@ function text(value) {
   return String(value ?? '');
 }
 
-function csvCell(value) {
+function spreadsheetSafe(value) {
   const raw = text(value);
+  return /^[\t\r\n ]*[=+\-@]/.test(raw) ? `'${raw}` : raw;
+}
+
+function csvCell(value) {
+  const raw = spreadsheetSafe(value);
   if (/[",\r\n]/.test(raw)) return `"${raw.replaceAll('"', '""')}"`;
   return raw;
 }
@@ -82,7 +87,7 @@ export function buildExcelHtml(payload = {}) {
     ['Positive Rate', summary.respondents ? pct(summary.positiveRate) : '—'],
   ];
   const rawHeader = headers.map((header) => `<th>${escapeHtml(header)}</th>`).join('');
-  const rawRows = rows.map((row) => `<tr>${headers.map((_, index) => `<td>${escapeHtml(row[index] ?? '')}</td>`).join('')}</tr>`).join('');
+  const rawRows = rows.map((row) => `<tr>${headers.map((_, index) => `<td>${escapeHtml(spreadsheetSafe(row[index] ?? ''))}</td>`).join('')}</tr>`).join('');
   return `<!doctype html><html><head><meta charset="utf-8"><style>
     body{font-family:Arial,'Noto Sans Thai',sans-serif;color:#1d2f40}h1{font-size:20px;margin:0 0 4px}p{margin:0 0 14px;color:#607080}
     table{border-collapse:collapse;margin:12px 0 24px;width:100%}th,td{border:1px solid #cfd9e2;padding:7px 9px;text-align:left;vertical-align:top}th{background:#eaf4f8;font-weight:700}.section{background:#0b6c91;color:#fff;font-weight:700}
