@@ -22,12 +22,21 @@ function pct(value, digits = 1) {
   return `${number.toFixed(digits)}%`;
 }
 
-/**\n * @param {Array<unknown>} headers\n * @param {Array<Array<unknown>>} rows\n */\nexport function buildCsv(headers = [], rows = []) {
+/**
+ * @param {Array<unknown>} headers
+ * @param {Array<Array<unknown>>} rows
+ */
+export function buildCsv(headers = [], rows = []) {
   const lines = [headers, ...rows].map((row) => row.map(csvCell).join(','));
   return `\uFEFF${lines.join('\r\n')}`;
 }
 
-/**\n * @param {unknown} title\n * @param {unknown} dateKey\n * @param {unknown} extension\n */\nexport function buildExportFilename(title, dateKey, extension) {
+/**
+ * @param {unknown} title
+ * @param {unknown} dateKey
+ * @param {unknown} extension
+ */
+export function buildExportFilename(title, dateKey, extension) {
   const safeTitle = text(title || 'satisfaction')
     .normalize('NFKC')
     .replace(/[^\p{L}\p{M}\p{N}]+/gu, '-')
@@ -53,7 +62,19 @@ function fieldSummaryRow(field = {}) {
   return `<tr><td>${escapeHtml(field.label)}</td><td>${escapeHtml(role)}</td><td>${Number(field.responses || 0)}</td><td>${pct(field.responseRate)}</td><td>${escapeHtml(detail)}</td></tr>`;
 }
 
-/**\n * @param {{\n *  title?: unknown, subtitle?: unknown, filters?: Array<unknown>, headers?: Array<unknown>,\n *  rows?: Array<Array<unknown>>, summary?: Record<string, any>, fieldSummaries?: Array<Record<string, any>>\n * }} payload\n */\nexport function buildExcelHtml(payload = {}) {\n  const { title = '', subtitle = '', filters = [], headers = [], rows = [], summary = {}, fieldSummaries = [] } = payload;
+/**
+ * @param {{
+ *  title?: unknown,
+ *  subtitle?: unknown,
+ *  filters?: Array<unknown>,
+ *  headers?: Array<unknown>,
+ *  rows?: Array<Array<unknown>>,
+ *  summary?: Record<string, any>,
+ *  fieldSummaries?: Array<Record<string, any>>
+ * }} payload
+ */
+export function buildExcelHtml(payload = {}) {
+  const { title = '', subtitle = '', filters = [], headers = [], rows = [], summary = {}, fieldSummaries = [] } = payload;
   const summaryRows = [
     ['ผู้ตอบ', Number(summary.respondents || 0)],
     ['คะแนนเฉลี่ย', summary.respondents ? `${Number(summary.average || 0).toFixed(2)} / 5` : '—'],
