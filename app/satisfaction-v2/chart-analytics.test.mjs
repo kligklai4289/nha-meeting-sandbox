@@ -85,3 +85,28 @@ test('executive insight describes satisfaction and best/worst questions', () => 
   assert.match(insight.detail, /เนื้อหา/);
   assert.match(insight.commentNote, /2/);
 });
+
+
+test('live satisfaction wording updates question mix, organization percentages, and date trend', () => {
+  const liveRows = [
+    ['2026-08-27 09:00', 'A', 'พึงพอใจ', 'พึงพอใจอย่างมาก', '', ''],
+    ['2026-08-27 10:00', 'B', 'ไม่แน่ใจ/เฉยๆ', 'พึงพอใจ', '', ''],
+    ['2026-08-28 09:00', 'A', 'พึงพอใจอย่างมาก', 'พึงพอใจอย่างมาก', '', ''],
+  ];
+  const mix = summarizeQuestionDistribution(liveRows, schema);
+  assert.equal(mix[0].total, 3);
+  assert.equal(mix[0].scores.find((item) => item.score === 5).count, 1);
+  assert.equal(mix[0].scores.find((item) => item.score === 4).count, 1);
+  assert.equal(mix[0].scores.find((item) => item.score === 3).count, 1);
+
+  const orgs = summarizeByOrganization(liveRows, schema);
+  const orgA = orgs.find((item) => item.organization === 'A');
+  const orgB = orgs.find((item) => item.organization === 'B');
+  assert.equal(orgA.satisfactionPercent, 95);
+  assert.equal(orgB.satisfactionPercent, 70);
+
+  const dates = summarizeByDate(liveRows, schema);
+  assert.deepEqual(dates.map((item) => item.dateKey), ['2026-08-27', '2026-08-28']);
+  assert.equal(dates[0].satisfactionPercent, 80);
+  assert.equal(dates[1].satisfactionPercent, 100);
+});
