@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { detectSchema, summarizeDynamic } from './dynamic-schema.mjs';
+import { detectSchema, normalizeDynamicScore, summarizeDynamic } from './dynamic-schema.mjs';
 
 test('detects timestamp, organization, score questions, and comments from headers', () => {
   const headers = [
@@ -79,4 +79,29 @@ test('summarizes score, organization, time, and comment fields independently', (
   assert.equal(q1.positiveRate, 66.67);
   assert.equal(comment.responses, 2);
   assert.equal(comment.responseRate, 66.67);
+});
+
+
+test('maps satisfaction wording used by the live Google Form to the 5-point scale', () => {
+  assert.equal(normalizeDynamicScore('พึงพอใจอย่างมาก'), 5);
+  assert.equal(normalizeDynamicScore('พึงพอใจ'), 4);
+  assert.equal(normalizeDynamicScore('ไม่แน่ใจ/เฉยๆ'), 3);
+  assert.equal(normalizeDynamicScore('ไม่พึงพอใจ'), 2);
+  assert.equal(normalizeDynamicScore('ไม่พึงพอใจอย่างมาก'), 1);
+});
+
+test('detects live satisfaction labels as score questions and drives KPIs', () => {
+  const headers = ['Timestamp', 'หน่วยงานที่สังกัด', 'Q1', 'Q2', 'ข้อเสนอแนะ'];
+  const rows = [
+    ['8/27/2026 12:00', 'A', 'พึงพอใจ', 'พึงพอใจอย่างมาก', ''],
+    ['8/27/2026 13:00', 'B', 'ไม่แน่ใจ/เฉยๆ', 'ไม่พึงพอใจ', 'x'],
+  ];
+  const schema = detectSchema(headers, rows);
+  assert.deepEqual(schema.questionIndexes, [2, 3]);
+  const summary = summarizeDynamic(rows, schema);
+  assert.equal(summary.average, 3.5);
+  assert.equal(summary.satisfactionPercent, 70);
+  assert.equal(summary.positiveRate, 50);
+  assert.equal(summary.best.label, 'Q2');
+  assert.equal(summary.worst.label, 'Q1');
 });
