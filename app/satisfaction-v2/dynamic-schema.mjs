@@ -29,12 +29,25 @@ export function normalizeDynamicScore(value) {
   if (!raw) return null;
   const numeric = raw.match(/(?:^|\s)([1-5])(?:\s|$)/) || raw.match(/^([1-5])(?:\.|\)|\s)/);
   if (numeric) return Number(numeric[1]);
+  const satisfactionMap = [
+    ['ไม่พึงพอใจอย่างมาก', 1],
+    ['ไม่พึงพอใจมาก', 1],
+    ['ไม่พึงพอใจ', 2],
+    ['ไม่แน่ใจ/เฉยๆ', 3],
+    ['ไม่แน่ใจ / เฉยๆ', 3],
+    ['เฉยๆ', 3],
+    ['พึงพอใจอย่างมาก', 5],
+    ['พึงพอใจมาก', 5],
+    ['พึงพอใจ', 4],
+  ];
+  for (const [label, score] of satisfactionMap) if (raw.includes(label)) return score;
+
   const scoreMap = [
     ['มากที่สุด', 5],
-    ['มาก', 4],
-    ['ปานกลาง', 3],
     ['น้อยที่สุด', 1],
     ['น้อยมาก', 1],
+    ['ปานกลาง', 3],
+    ['มาก', 4],
     ['น้อย', 2],
   ];
   for (const [label, score] of scoreMap) if (raw.includes(label)) return score;
