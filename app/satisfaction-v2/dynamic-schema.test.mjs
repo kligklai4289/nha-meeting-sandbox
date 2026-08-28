@@ -94,13 +94,13 @@ test('detects live satisfaction labels as score questions and drives KPIs', () =
   const headers = ['Timestamp', 'หน่วยงานที่สังกัด', 'Q1', 'Q2', 'ข้อเสนอแนะ'];
   const rows = [
     ['8/27/2026 12:00', 'A', 'พึงพอใจ', 'พึงพอใจอย่างมาก', ''],
-    ['8/27/2026 13:00', 'B', 'ไม่แน่ใจ/เฉยๆ', 'ไม่พึงพอใจ', 'x'],
+    ['8/27/2026 13:00', 'B', 'ไม่แน่ใจ/เฉยๆ', 'ไม่แน่ใจ/เฉยๆ', 'x'],
   ];
   const schema = detectSchema(headers, rows);
   assert.deepEqual(schema.questionIndexes, [2, 3]);
   const summary = summarizeDynamic(rows, schema);
-  assert.equal(summary.average, 3.5);
-  assert.equal(summary.satisfactionPercent, 70);
+  assert.equal(summary.average, 3.75);
+  assert.equal(summary.satisfactionPercent, 75);
   assert.equal(summary.positiveRate, 50);
   assert.equal(summary.best.label, 'Q2');
   assert.equal(summary.worst.label, 'Q1');
